@@ -15,7 +15,7 @@ env:
 
   # ── Defconfig ────────────────────────────────────────────────
   DEFCONFIG_SOURCE      : ""
-  DEFCONFIG_NAME        : "a11q_open"
+  DEFCONFIG_NAME        : "a11q_open_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT   : false
 
