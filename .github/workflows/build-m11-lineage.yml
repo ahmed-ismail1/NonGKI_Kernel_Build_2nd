@@ -1,32 +1,17 @@
-name: Build Samsung Galaxy M11 (A11Q) KSU Next + SUSFS (Kernel 4.9)
+name: Build Samsung Galaxy M11 (KSU Next + SUSFS)
 
 on:
   workflow_call:
   workflow_dispatch:
 
 env:
-  # Device Information
+  # Device
   DEVICE_NAME : "galaxy_m11"
   DEVICE_CODENAME : "a11q"
-
-  # Build Commands
-  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu-"
-  EXTRA_CMDS : "LD=ld.lld LLVM=1 LLVM_IAS=0"
 
   # Kernel Source
   KERNEL_SOURCE : "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH : "lineage-20"
-
-  # Clang Toolchain
-  CLANG_SOURCE : "https://github.com/kdrag0n/proton-clang.git"
-  CLANG_BRANCH : "master"
-
-  # GCC Toolchain
-  GCC_GNU : false
-  GCC_64_SOURCE : ""
-  GCC_64_BRANCH : ""
-  GCC_32_SOURCE : ""
-  GCC_32_BRANCH : ""
 
   # Defconfig
   DEFCONFIG_SOURCE: ""
@@ -34,7 +19,40 @@ env:
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
+  # Compiler
+  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu-"
+  EXTRA_CMDS : "LLVM=1 LLVM_IAS=0"
+
+  CLANG_SOURCE : "https://github.com/ZyCromerZ/Clang.git"
+  CLANG_BRANCH : "14.0"
+
+  # GCC
+  GCC_GNU : false
+  GCC_64_SOURCE : ""
+  GCC_64_BRANCH : ""
+  GCC_32_SOURCE : ""
+  GCC_32_BRANCH : ""
+
+  # Python
+  PYTHON_VERSION : "2"
+
+  # AnyKernel3
+  PACK_METHOD : "Anykernel3"
+  PACK_KMODULES : "false"
+
+  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH : "master"
+
+  # Boot
+  BOOT_SOURCE : ""
+
+  # DTBO
+  NEED_DTBO : false
+  NEED_SAFE_DTBO : false
+
   # KernelSU
+  KERNELSU_METHOD : "shell"
+
   KERNELSU_SOURCE : ""
   KERNELSU_BRANCH : ""
 
@@ -45,62 +63,139 @@ env:
   SUSFS_ENABLE : true
   SUSFS_FIXED : true
 
-  # AnyKernel3
-  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
-  AK3_BRANCH : "master"
+  PATCHES_SOURCE : "JackA1ltman/NonGKI_Kernel_Patches"
+  PATCHES_BRANCH : "mi_kernel"
 
-  # Boot Image
-  BOOT_SOURCE : ""
+  SUSFS_FOLDER_FIXED : ""
+  SUSFS_PATCH_FIXED : "susfs_fixed"
 
-  # DTBO
-  NEED_DTBO : false
-  NEED_SAFE_DTBO : false
-
-  # ROM Information
-  ROM_TEXT : "lineage20_a11q_ksunext_susfs"
-
-  # Python Version
-  PYTHON_VERSION: "2"
-
-  # Packaging
-  PACK_METHOD: "Anykernel3"
-  PACK_KMODULES: "false"
-
-  # KernelSU Method
-  KERNELSU_METHOD: "shell"
-
-  # Patch Sources
-  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
-  PATCHES_BRANCH: "mi_kernel"
-
-  # SUSFS Patches
-  SUSFS_FOLDER_FIXED: "redmi_8_419"
-  SUSFS_PATCH_FIXED: "susfs_fixed"
-
-  # Re:Kernel
-  REKERNEL_ENABLE: "true"
+  # Legacy Kernel
+  KERNEL_PATCH : "true"
 
   # Hook Method
-  HOOK_METHOD: "manual"
+  HOOK_METHOD : "manual"
 
-  # Kernel Patch (Important for 4.9)
-  KERNEL_PATCH: "true"
+  # ReKernel
+  REKERNEL_ENABLE : "false"
 
   # KPM
-  KPM_ENABLE: "true"
-  KPM_INLINE: "false"
-  KPM_KPATCH_NEXT: "false"
+  KPM_ENABLE : "false"
+  KPM_INLINE : "false"
+  KPM_KPATCH_NEXT : "false"
 
-  KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
+  KPM_PATCH_SOURCE : "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
 
   # Baseband Guard
-  BASEBAND_GUARD_ENABLE: "false"
-  BASEBAND_GUARD_BOOT: "false"
+  BASEBAND_GUARD_ENABLE : "false"
+  BASEBAND_GUARD_BOOT : "false"
 
   # Hide Features
-  HIDE_STUFF: "true"
+  HIDE_STUFF : "true"
 
-  # DTB Generation
+  # DTB
+  GENERATE_DTB : "false"
+  GENERATE_CHIP : "msm8953"
+
+  # Build Debug
+  BUILD_DEBUGGER : "false"
+  SKIP_PATCH : "true"
+
+  # Config Merge
+  BUILD_OTHER_CONFIG : "false"
+  MERGE_CONFIG_FILES : ""
+
+  # Free Space
+  FREE_MORE_SPACE : "false"
+
+  # ROM Name
+  ROM_TEXT : "a11q_ksunext_susfs"
+
+jobs:
+  build-kernel:
+    name: Samsung Galaxy M11 Kernel
+    runs-on: ubuntu-latest
+    container: ubuntu:focal
+
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+
+    steps:
+      - name: ⏰ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⌛ Prepare Environment
+        uses: ./.github/workflows/build-env
+
+      - name: ⚙️ Get Necessary Tools
+        uses: ./.github/workflows/build-ready
+
+      - name: 🪝 Patch SUSFS
+        uses: ./.github/workflows/patch-susfs
+
+      - name: 🔗 Patch no-kprobe
+        uses: ./.github/workflows/patch-no-kprobe
+
+      - name: 🔓 Set SELinux Permissive
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+
+          echo "CONFIG_SECURITY_SELINUX_ALWAYS_PERMISSIVE=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+
+      - name: 🔧 Fix Legacy Clang Flags
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+
+          find . -type f \( -name Makefile -o -name Kbuild \) \
+          -exec sed -i 's/-Wimplicit-function-declaration//g' {} \;
+
+          find . -type f \( -name Makefile -o -name Kbuild \) \
+          -exec sed -i 's/-Wno-implicit-function-declaration//g' {} \;
+
+          find . -type f \( -name Makefile -o -name Kbuild \) \
+          -exec sed -i 's/-Wunknown-warning-option//g' {} \;
+
+          find . -type f \( -name Makefile -o -name Kbuild \) \
+          -exec sed -i 's/-Wno-unknown-warning-option//g' {} \;
+
+          sed -i 's/-Werror//g' Makefile || true
+
+      - name: 🔧 Samsung 4.9 Fixes
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+
+          sed -i 's/check_defconfig//' scripts/kconfig/Makefile || true
+
+      - name: 🔧 Patch Hide Stuff
+        uses: ./.github/workflows/patch-hide-stuff
+
+      - name: 🚀 Build Process
+        uses: ./.github/workflows/build-process
+
+      - name: 📦 Prepare AnyKernel3
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE
+
+          git clone --depth=1 ${{ env.AK3_SOURCE }} -b ${{ env.AK3_BRANCH }} AnyKernel3
+
+      - name: 📁 Copy Kernel Image
+        shell: bash
+        run: |
+          cd $GITHUB_WORKSPACE
+
+          cp device_kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/Image.gz-dtb || true
+          cp device_kernel/out/arch/arm64/boot/Image AnyKernel3/Image || true
+
+      - name: 🔩 Pack Process
+        uses: ./.github/workflows/pack-process
+
+      - name: ✏️ Upload Artifacts
+        uses: ./.github/workflows/upload-files  # DTB Generation
   GENERATE_DTB: "false"
   GENERATE_CHIP: "msm8953"
 
