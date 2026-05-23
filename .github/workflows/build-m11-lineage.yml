@@ -22,11 +22,11 @@ env:
   # GCC
   GCC_GNU : false
 
-  GCC_64_SOURCE : "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
-  GCC_64_BRANCH : "android-12.1.0_r27"
+  GCC_64_SOURCE : "https://github.com/GrowtopiaJaw/aarch64-linux-android-4.9.git"
+  GCC_64_BRANCH : "google"
 
-  GCC_32_SOURCE : "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
-  GCC_32_BRANCH : "android-12.1.0_r27"
+  GCC_32_SOURCE : "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9"
+  GCC_32_BRANCH : "lineage-19.1"
 
   # Defconfig
   DEFCONFIG_SOURCE: ""
