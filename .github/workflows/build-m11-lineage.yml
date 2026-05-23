@@ -20,14 +20,15 @@ env:
   DEFCONFIG_FROM_BOOT   : false
 
   # ── Toolchain ────────────────────────────────────────────────
-  # Proton Clang — أثبت خيار لـ SDM450 4.19
+  # Clang 11 — آخر إصدار يشتغل كويس مع kernel 4.9
   CLANG_SOURCE: "https://github.com/kdrag0n/proton-clang.git"
   CLANG_BRANCH: "master"
 
-  CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu-"
-  EXTRA_CMDS : "LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+  # kernel 4.9 — Clang بس للـ CC، الـ linker بيبقى GCC
+  CUSTOM_CMDS: "CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+  EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
-  # GCC — GNU Linaro style (زي A71)
+  # GCC — GNU Linaro style
   GCC_GNU      : true
   GCC_64_SOURCE: "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git"
   GCC_64_BRANCH: "lineage-19.1"
@@ -35,14 +36,14 @@ env:
   GCC_32_BRANCH: "lineage-19.1"
 
   # ── KernelSU ─────────────────────────────────────────────────
-  KERNELSU_SOURCE  : ""
-  KERNELSU_BRANCH  : ""
-  KERNELSU_AUTO_GET: "true"
-  KERNELSU_AUTO_FORK: "resukisu"   # resukisu — الأنسب لـ Non-GKI Samsung القديمة
+  KERNELSU_SOURCE   : ""
+  KERNELSU_BRANCH   : ""
+  KERNELSU_AUTO_GET : "true"
+  KERNELSU_AUTO_FORK: "resukisu"
 
   # ── SuSFS ────────────────────────────────────────────────────
-  SUSFS_ENABLE     : false   # ⚠️ خليها false الأول لحد ما تتأكد الـ build ينجح
-  SUSFS_FIXED      : false
+  SUSFS_ENABLE      : false
+  SUSFS_FIXED       : false
   SUSFS_FOLDER_FIXED: ""
   SUSFS_PATCH_FIXED : ""
 
@@ -51,25 +52,25 @@ env:
   PATCHES_BRANCH: "samsung_kernel"
 
   # ── AnyKernel3 ───────────────────────────────────────────────
-  AK3_SOURCE: "https://github.com/osm0sis/AnyKernel3.git"
-  AK3_BRANCH: "master"
+  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH : "master"
   BOOT_SOURCE: ""
 
   # ── Output / Pack ────────────────────────────────────────────
-  NEED_DTBO      : false   # SDM450 مش بيستخدم DTBO
-  NEED_SAFE_DTBO : false
-  ROM_TEXT       : "lineage20"
-  PACK_METHOD    : "Anykernel3"
-  PACK_KMODULES  : "false"
+  NEED_DTBO     : false
+  NEED_SAFE_DTBO: false
+  ROM_TEXT      : "lineage20"
+  PACK_METHOD   : "Anykernel3"
+  PACK_KMODULES : "false"
   KERNELSU_METHOD: "shell"
 
   # ── Extra Features ───────────────────────────────────────────
-  REKERNEL_ENABLE: "false"         # 4.19 — مش مضمون، خليها false
+  REKERNEL_ENABLE: "false"
 
-  HOOK_METHOD  : "syscall"         # الأأمن على SDM450 Samsung
-  KERNEL_PATCH : "false"           # فقط لـ kernel <= 4.9
+  HOOK_METHOD : "syscall"
+  KERNEL_PATCH: "true"      # ✅ kernel <= 4.9 لازم يكون true
 
-  KPM_ENABLE      : "false"        # شغّله بعدين لو الـ build نجح
+  KPM_ENABLE      : "false"
   KPM_INLINE      : "false"
   KPM_KPATCH_NEXT : "false"
   KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
