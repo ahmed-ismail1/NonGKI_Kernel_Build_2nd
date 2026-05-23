@@ -1,121 +1,82 @@
-name: Build Samsung Galaxy M11 (KSU Next + SUSFS)
+name: Build Samsung Galaxy M11 (LineageOS 20)
 
 on:
-  workflow_call:
   workflow_dispatch:
 
 env:
-  # Device
   DEVICE_NAME : "galaxy_m11"
   DEVICE_CODENAME : "a11q"
 
-  # Kernel Source
   KERNEL_SOURCE : "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH : "lineage-20"
 
-  # Defconfig
-  DEFCONFIG_SOURCE: ""
+  # Use GCC instead of Clang for older kernel
+  CLANG_SOURCE : ""
+  CLANG_BRANCH : ""
+
+  GCC_GNU : true
+  GCC_64_SOURCE : "https://github.com/nduykha/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.git"
+  GCC_64_BRANCH : "main"
+  GCC_32_SOURCE : "https://github.com/nduykha/gcc-linaro-7.5.0-2019.12-x86_64_arm-eabi.git"
+  GCC_32_BRANCH : "main"
+
   DEFCONFIG_NAME : "a11q_open_defconfig"
-  DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  # Compiler
-  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu-"
-  EXTRA_CMDS : "LLVM=1 LLVM_IAS=0"
+  KERNELSU_AUTO_GET : "true"
+  KERNELSU_AUTO_FORK : "resukisu"
 
-  CLANG_SOURCE : "https://github.com/ZyCromerZ/Clang.git"
-  CLANG_BRANCH : "14.0"
-
-  # GCC
-  GCC_GNU : false
-  GCC_64_SOURCE : ""
-  GCC_64_BRANCH : ""
-  GCC_32_SOURCE : ""
-  GCC_32_BRANCH : ""
-
-  # Python
-  PYTHON_VERSION : "2"
-
-  # AnyKernel3
-  PACK_METHOD : "Anykernel3"
-  PACK_KMODULES : "false"
+  SUSFS_ENABLE : true
+  SUSFS_FIXED : true
 
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH : "master"
 
-  # Boot
-  BOOT_SOURCE : ""
-
-  # DTBO
-  NEED_DTBO : false
+  NEED_DTBO : true
   NEED_SAFE_DTBO : false
 
-  # KernelSU
-  KERNELSU_METHOD : "shell"
+  ROM_TEXT : "lineage_20"
 
-  KERNELSU_SOURCE : ""
-  KERNELSU_BRANCH : ""
+  PYTHON_VERSION: "3"
 
-  KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK : "next"
+  PACK_METHOD: "Anykernel3"
 
-  # SUSFS
-  SUSFS_ENABLE : true
-  SUSFS_FIXED : true
+  KERNELSU_METHOD: "shell"
 
-  PATCHES_SOURCE : "JackA1ltman/NonGKI_Kernel_Patches"
-  PATCHES_BRANCH : "mi_kernel"
+  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
+  PATCHES_BRANCH: "samsung_kernel"
 
-  SUSFS_FOLDER_FIXED : ""
-  SUSFS_PATCH_FIXED : "susfs_fixed"
+  SUSFS_FOLDER_FIXED: ""  # Leave empty - will try auto-detect
+  SUSFS_PATCH_FIXED: "susfs_fixed"
 
-  # Legacy Kernel
-  KERNEL_PATCH : "true"
+  REKERNEL_ENABLE: "true"
 
-  # Hook Method
-  HOOK_METHOD : "manual"
+  HOOK_METHOD: "syscall"
 
-  # ReKernel
-  REKERNEL_ENABLE : "false"
+  KERNEL_PATCH: "true"
+  KPM_ENABLE: "true"
+  KPM_INLINE: "false"  # Changed to false for stability
+  KPM_KPATCH_NEXT: "false"
 
-  # KPM
-  KPM_ENABLE : "false"
-  KPM_INLINE : "false"
-  KPM_KPATCH_NEXT : "false"
+  BASEBAND_GUARD_ENABLE: "true"
+  BASEBAND_GUARD_BOOT: "false"
 
-  KPM_PATCH_SOURCE : "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
+  HIDE_STUFF: "true"
 
-  # Baseband Guard
-  BASEBAND_GUARD_ENABLE : "false"
-  BASEBAND_GUARD_BOOT : "false"
+  GENERATE_DTB: "false"
+  GENERATE_CHIP: "msm8953"  # SDM450 chipset
 
-  # Hide Features
-  HIDE_STUFF : "true"
+  BUILD_DEBUGGER: "true"  # Enable for debugging
+  SKIP_PATCH: "false"
 
-  # DTB
-  GENERATE_DTB : "false"
-  GENERATE_CHIP : "msm8953"
+  BUILD_OTHER_CONFIG: "false"
 
-  # Build Debug
-  BUILD_DEBUGGER : "false"
-  SKIP_PATCH : "true"
-
-  # Config Merge
-  BUILD_OTHER_CONFIG : "false"
-  MERGE_CONFIG_FILES : ""
-
-  # Free Space
-  FREE_MORE_SPACE : "false"
-
-  # ROM Name
-  ROM_TEXT : "a11q_ksunext_susfs"
+  FREE_MORE_SPACE: "true"  # Enable to avoid space issues
 
 jobs:
   build-kernel:
-    name: Samsung Galaxy M11 Kernel
+    name: Samsung Galaxy M11 (LineageOS 20)
     runs-on: ubuntu-latest
-    container: ubuntu:focal
-
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
@@ -123,52 +84,43 @@ jobs:
 
     steps:
       - name: ⏰ Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: ⌛ Prepare Environment
+      - name: ⌛️ Compilation environment preparation
         uses: ./.github/workflows/build-env
 
-      - name: ⚙️ Get Necessary Tools
+      - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🪝 Patch SUSFS
+      - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
 
-      - name: 🔗 Patch no-kprobe
+      - name: 🔗 Patch for no-kprobe
         uses: ./.github/workflows/patch-no-kprobe
 
-      - name: 🔓 Set SELinux Permissive
-        shell: bash
+      - name: 🛠️ Fix KPM features
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
+          # Remove existing configs if they exist
+          sed -i '/CONFIG_DEBUG_KERNEL/d' arch/arm64/configs/a11q_open_defconfig
+          sed -i '/CONFIG_KALLSYMS/d' arch/arm64/configs/a11q_open_defconfig
+          sed -i '/CONFIG_KALLSYMS_ALL/d' arch/arm64/configs/a11q_open_defconfig
+          sed -i '/CONFIG_HAVE_KPROBES/d' arch/arm64/configs/a11q_open_defconfig
+          
+          # Add required configs
+          cat <<EOF >> arch/arm64/configs/a11q_open_defconfig
+          CONFIG_DEBUG_KERNEL=y
+          CONFIG_KALLSYMS=y
+          CONFIG_KALLSYMS_ALL=y
+          CONFIG_HAVE_KPROBES=y
+          EOF
+          echo "[+] Fixed KPM and Kprobe features"
 
-          echo "CONFIG_SECURITY_SELINUX_ALWAYS_PERMISSIVE=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+      - name: 🧰 Patch Kernel of Re:Kernel
+        uses: ./.github/workflows/patch-rekernel
 
-      - name: 🔧 Fix Legacy Clang Flags
-        shell: bash
-        run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-
-          find . -type f \( -name Makefile -o -name Kbuild \) \
-          -exec sed -i 's/-Wimplicit-function-declaration//g' {} \;
-
-          find . -type f \( -name Makefile -o -name Kbuild \) \
-          -exec sed -i 's/-Wno-implicit-function-declaration//g' {} \;
-
-          find . -type f \( -name Makefile -o -name Kbuild \) \
-          -exec sed -i 's/-Wunknown-warning-option//g' {} \;
-
-          find . -type f \( -name Makefile -o -name Kbuild \) \
-          -exec sed -i 's/-Wno-unknown-warning-option//g' {} \;
-
-          sed -i 's/-Werror//g' Makefile || true
-
-      - name: 🔧 Samsung 4.9 Fixes
-        shell: bash
-        run: |
-          cd $GITHUB_WORKSPACE/device_kernel
-
-          sed -i 's/check_defconfig//' scripts/kconfig/Makefile || true
+      - name: 🔒 Patch Kernel of Baseband Guard
+        uses: ./.github/workflows/patch-baseband-guard
 
       - name: 🔧 Patch Hide Stuff
         uses: ./.github/workflows/patch-hide-stuff
@@ -176,20 +128,36 @@ jobs:
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 
-      - name: 📦 Prepare AnyKernel3
-        shell: bash
+      - name: 🔍 Verify and Create DTBO Image
         run: |
-          cd $GITHUB_WORKSPACE
-
-          git clone --depth=1 ${{ env.AK3_SOURCE }} -b ${{ env.AK3_BRANCH }} AnyKernel3
-
-      - name: 📁 Copy Kernel Image
-        shell: bash
-        run: |
-          cd $GITHUB_WORKSPACE
-
-          cp device_kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/Image.gz-dtb || true
-          cp device_kernel/out/arch/arm64/boot/Image AnyKernel3/Image || true
+          cd $GITHUB_WORKSPACE/device_kernel
+          echo "🔍 Searching for dtb/dtbo files..."
+          # Create dtbo directory
+          mkdir -p out/arch/arm64/boot/dtbo
+          
+          # Try multiple patterns
+          DTBO_FILES=$(find out/arch/arm64/boot/dts -name "*.dtbo" 2>/dev/null || echo "")
+          
+          if [ -z "$DTBO_FILES" ]; then
+            # Alternative: use dtb files
+            DTB_FILES=$(find out/arch/arm64/boot/dts -name "*.dtb" 2>/dev/null | head -5)
+            if [ -n "$DTB_FILES" ]; then
+              echo "📦 Found dtb files, creating dtbo.img from them..."
+              cat $DTB_FILES > out/arch/arm64/boot/dtbo.img
+              echo "✅ Created dtbo.img from dtb files"
+            else
+              echo "⚠️ No dtbo/dtb files found - this might be OK for some devices"
+            fi
+          else
+            echo "📦 Creating dtbo.img..."
+            ./tools/mkdtimg create out/arch/arm64/boot/dtbo.img --page_size=4096 ${DTBO_FILES}
+            if [ -f "out/arch/arm64/boot/dtbo.img" ]; then
+              echo "✅ DTBO created successfully"
+            else
+              echo "❌ DTBO creation failed"
+              exit 1
+            fi
+          fi
 
       - name: 🔩 Pack Process
         uses: ./.github/workflows/pack-process
