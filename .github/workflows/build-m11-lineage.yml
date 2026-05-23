@@ -5,70 +5,57 @@ on:
   workflow_dispatch:
 
 env:
-  # ── Device ──────────────────────────────────────────────────
   DEVICE_NAME    : "galaxy_m11"
   DEVICE_CODENAME: "a11q"
 
-  # ── Kernel Source ────────────────────────────────────────────
   KERNEL_SOURCE: "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH: "lineage-20"
 
-  # ── Defconfig ────────────────────────────────────────────────
   DEFCONFIG_SOURCE      : ""
   DEFCONFIG_NAME        : "a11q_open_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT   : false
 
-  # ── Toolchain ────────────────────────────────────────────────
-  # Clang 11 — آخر إصدار يشتغل كويس مع kernel 4.9
   CLANG_SOURCE: "https://github.com/kdrag0n/proton-clang.git"
   CLANG_BRANCH: "master"
 
-  # kernel 4.9 — Clang بس للـ CC، الـ linker بيبقى GCC
   CUSTOM_CMDS: "CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
   EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
-  # GCC — GNU Linaro style
   GCC_GNU      : true
   GCC_64_SOURCE: "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git"
   GCC_64_BRANCH: "lineage-19.1"
   GCC_32_SOURCE: "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git"
   GCC_32_BRANCH: "lineage-19.1"
 
-  # ── KernelSU ─────────────────────────────────────────────────
   KERNELSU_SOURCE   : ""
   KERNELSU_BRANCH   : ""
   KERNELSU_AUTO_GET : "true"
   KERNELSU_AUTO_FORK: "resukisu"
 
-  # ── SuSFS ────────────────────────────────────────────────────
   SUSFS_ENABLE      : false
   SUSFS_FIXED       : false
   SUSFS_FOLDER_FIXED: ""
   SUSFS_PATCH_FIXED : ""
 
-  # ── Patches ──────────────────────────────────────────────────
   PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
   PATCHES_BRANCH: "samsung_kernel"
 
-  # ── AnyKernel3 ───────────────────────────────────────────────
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH : "master"
   BOOT_SOURCE: ""
 
-  # ── Output / Pack ────────────────────────────────────────────
-  NEED_DTBO     : false
-  NEED_SAFE_DTBO: false
-  ROM_TEXT      : "lineage20"
-  PACK_METHOD   : "Anykernel3"
-  PACK_KMODULES : "false"
+  NEED_DTBO      : false
+  NEED_SAFE_DTBO : false
+  ROM_TEXT       : "lineage20"
+  PACK_METHOD    : "Anykernel3"
+  PACK_KMODULES  : "false"
   KERNELSU_METHOD: "shell"
 
-  # ── Extra Features ───────────────────────────────────────────
   REKERNEL_ENABLE: "false"
 
   HOOK_METHOD : "syscall"
-  KERNEL_PATCH: "true"      # ✅ kernel <= 4.9 لازم يكون true
+  KERNEL_PATCH: "true"
 
   KPM_ENABLE      : "false"
   KPM_INLINE      : "false"
@@ -93,7 +80,7 @@ env:
 jobs:
   build-kernel:
     name: Samsung Galaxy M11 (LineageOS 20)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container: ubuntu:focal
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -101,6 +88,11 @@ jobs:
       CCACHE_HARDLINK : "true"
 
     steps:
+      - name: 🛠️ Setup container (install sudo)
+        run: |
+          apt-get update -y
+          apt-get install -y sudo
+
       - name: ⏰ Checkout repository
         uses: actions/checkout@v6
 
