@@ -17,12 +17,11 @@ env:
   KERNEL_SOURCE : "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH : "lineage-20"
 
-  # Clang
-  CLANG_SOURCE : "https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/13032023/neutron-clang-13032023.tar.zst"
+  CLANG_SOURCE : "https://github.com/kdrag0n/proton-clang.git"
   CLANG_BRANCH : ""
 
   # GCC
-  GCC_GNU : true
+  GCC_GNU : false
 
   GCC_64_SOURCE : "https://github.com/GrowtopiaJaw/aarch64-linux-android-4.9.git"
   GCC_64_BRANCH : "google"
