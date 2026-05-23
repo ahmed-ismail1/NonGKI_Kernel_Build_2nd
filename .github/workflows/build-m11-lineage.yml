@@ -1,15 +1,17 @@
 name: Build Samsung Galaxy M11 (LineageOS 20) + KSU
 
 on:
+  workflow_call:
   workflow_dispatch:
 
 env:
   # Device env
-  DEVICE_NAME : "galaxy_m11"
+  DEVICE_NAME : "samsung_m11"
   DEVICE_CODENAME : "a11q"
 
-  CUSTOM_CMDS : ""
-  EXTRA_CMDS : "LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
+  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
+
+  EXTRA_CMDS : "LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
   # Kernel Source
   KERNEL_SOURCE : "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
@@ -20,13 +22,13 @@ env:
   CLANG_BRANCH : ""
 
   # GCC
-  GCC_GNU : false
+  GCC_GNU : true
 
   GCC_64_SOURCE : "https://github.com/GrowtopiaJaw/aarch64-linux-android-4.9.git"
   GCC_64_BRANCH : "google"
 
-  GCC_32_SOURCE : "https://github.com/arter97/arm-linux-androideabi-4.9"
-GCC_32_BRANCH : "cm-12.0"
+  GCC_32_SOURCE : ""
+  GCC_32_BRANCH : ""
 
   # Defconfig
   DEFCONFIG_SOURCE: ""
@@ -38,8 +40,8 @@ GCC_32_BRANCH : "cm-12.0"
   KERNELSU_SOURCE : "https://github.com/rsuntk/KernelSU"
   KERNELSU_BRANCH : "main"
 
-  KERNELSU_AUTO_GET : "false"
-  KERNELSU_AUTO_FORK : ""
+  KERNELSU_AUTO_GET : "true"
+  KERNELSU_AUTO_FORK : "rsuntk"
 
   # SUSFS
   SUSFS_ENABLE : false
@@ -64,7 +66,7 @@ GCC_32_BRANCH : "cm-12.0"
   PACK_KMODULES: "false"
 
   # KernelSU Method
-  KERNELSU_METHOD: "manual"
+  KERNELSU_METHOD: "shell"
 
   # Patches
   PATCHES_SOURCE: ""
@@ -133,10 +135,10 @@ jobs:
       - name: 🔗 Patch for no-kprobe
         uses: ./.github/workflows/patch-no-kprobe
 
-      - name: 🧰 Extra Kernel Options
+      - name: 🪛 Extra Kernel Options
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
-          echo "[+] Samsung Galaxy M11 build"
+          echo "[+] Samsung Galaxy M11 build started"
 
       - name: 🧰 Patch Kernel of Re:Kernel
         uses: ./.github/workflows/patch-rekernel
