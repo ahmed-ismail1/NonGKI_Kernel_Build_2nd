@@ -1,3 +1,4 @@
+
 name: Build Samsung Galaxy A20s (LineageOS 20) + KSU
 
 on:
@@ -104,7 +105,9 @@ jobs:
         run: |
           # Only ${{ env.DEVICE_NAME }} use it.
           cd $GITHUB_WORKSPACE/device_kernel
-          # Nothing
+          scripts/config --file arch/arm64/configs/${{ env.DEFCONFIG_NAME }} \
+            --disable CC_STACKPROTECTOR_STRONG \
+            --enable  CC_STACKPROTECTOR
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
