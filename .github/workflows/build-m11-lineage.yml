@@ -9,9 +9,8 @@ env:
   DEVICE_NAME    : "galaxy_m11"
   DEVICE_CODENAME: "a11q"
 
-  # ✅ الفرق الوحيد — arm-linux-androideabi يتطابق مع GCC_32 اللي بيتنزل
   CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
-  EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+  EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
   KERNEL_SOURCE: "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH: "lineage-20"
