@@ -1,3 +1,4 @@
+
 name: Build Samsung Galaxy A20s (LineageOS 20) + KSU
 
 on:
@@ -104,7 +105,10 @@ jobs:
         run: |
           # Only ${{ env.DEVICE_NAME }} use it.
           cd $GITHUB_WORKSPACE/device_kernel
-          # Nothing
+          # Disable DTB build - missing msm8953 dtb sources
+          scripts/config --file arch/arm64/configs/${{ env.DEFCONFIG_NAME }} \
+            --disable BUILD_ARM64_DT_OVERLAY
+          sed -i 's/ dtbs//' arch/arm64/Makefile
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
