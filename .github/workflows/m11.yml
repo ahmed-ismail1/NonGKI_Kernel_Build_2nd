@@ -1,4 +1,4 @@
-name: Build Samsung Galaxy M11 (LineageOS 20) + KSU_next+susfs
+name: Build Samsung Galaxy M11 (LineageOS 20) + KSUn+susfs
 
 on:
   workflow_call:
@@ -19,10 +19,10 @@ env:
   CLANG_BRANCH: ""
 
   GCC_GNU      : true
-  GCC_64_SOURCE: "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.git"
-  GCC_64_BRANCH: "android12L-release"
-  GCC_32_SOURCE: "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9.git"
-  GCC_32_BRANCH: "android12L-release"
+  GCC_64_SOURCE: "https://github.com/mvaisakh/gcc-arm64/archive/refs/heads/gcc-master.zip"
+  GCC_64_BRANCH: ""
+  GCC_32_SOURCE: "https://github.com/mvaisakh/gcc-arm/archive/refs/heads/gcc-master.zip"
+  GCC_32_BRANCH: ""
 
   DEFCONFIG_SOURCE      : ""
   DEFCONFIG_NAME        : "a11q_open_defconfig"
@@ -32,10 +32,10 @@ env:
   KERNELSU_SOURCE   : ""
   KERNELSU_BRANCH   : ""
   KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK: "next"          # ✅ تغيير: rsuntk → next
+  KERNELSU_AUTO_FORK: "next"
 
-  SUSFS_ENABLE: true                  # ✅ تغيير: false → true
-  SUSFS_FIXED : true                  # ✅ تغيير: false → true
+  SUSFS_ENABLE: true
+  SUSFS_FIXED : true
 
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH : "master"
@@ -51,8 +51,8 @@ env:
   PACK_METHOD    : "Anykernel3"
   KERNELSU_METHOD: ""
 
-  PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Patches"   # ✅ تغيير: مطلوب لـ SuSFS
-  PATCHES_BRANCH    : "samsung_kernel"                       # ✅ تغيير: مطلوب لـ SuSFS
+  PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Patches"
+  PATCHES_BRANCH    : "samsung_kernel"
   SUSFS_FOLDER_FIXED: ""
   SUSFS_PATCH_FIXED : ""
 
@@ -63,7 +63,7 @@ env:
 
   KERNEL_PATCH: "true"
 
-  KPM_ENABLE      : "true"           # ✅ تغيير: false → true
+  KPM_ENABLE      : "true"
   KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
 
   BASEBAND_GUARD_ENABLE: "false"
@@ -79,7 +79,7 @@ env:
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
-  FREE_MORE_SPACE: "false"
+  FREE_MORE_SPACE: "true"   # ✅ بيحرر ~15GB قبل البناء
 
 jobs:
   build-kernel:
