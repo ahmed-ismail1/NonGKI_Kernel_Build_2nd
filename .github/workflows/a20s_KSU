@@ -1,4 +1,4 @@
-name: Build Samsung Galaxy M11 (LineageOS 20) + KSU
+name: Build Samsung Galaxy A20s (LineageOS 20) + KSU
 
 on:
   workflow_call:
