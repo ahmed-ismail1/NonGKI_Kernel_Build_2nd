@@ -1,4 +1,3 @@
-
 name: Build Samsung Galaxy A20s (LineageOS 20) + KSU
 
 on:
@@ -10,13 +9,13 @@ env:
   DEVICE_NAME    : "galaxy_a20s"
   DEVICE_CODENAME: "a20s"
 
-  CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
-  EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+  CUSTOM_CMDS: "CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
+  EXTRA_CMDS : ""
 
   KERNEL_SOURCE: "https://github.com/GalaxyA20s/android_kernel_samsung_a20s.git"
   KERNEL_BRANCH: "main"
 
-  CLANG_SOURCE: "https://github.com/ZyCromerZ/Clang/releases/download/13.0.1-20230207-release/Clang-13.0.1-20230207.tar.gz"
+  CLANG_SOURCE: ""
   CLANG_BRANCH: ""
 
   GCC_GNU      : true
@@ -105,9 +104,7 @@ jobs:
         run: |
           # Only ${{ env.DEVICE_NAME }} use it.
           cd $GITHUB_WORKSPACE/device_kernel
-          scripts/config --file arch/arm64/configs/${{ env.DEFCONFIG_NAME }} \
-            --disable CC_STACKPROTECTOR_STRONG \
-            --enable  CC_STACKPROTECTOR
+          # Nothing
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
