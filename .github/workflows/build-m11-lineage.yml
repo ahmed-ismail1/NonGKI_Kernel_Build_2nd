@@ -58,10 +58,10 @@ env:
 
   REKERNEL_ENABLE: ""
 
-  HOOK_METHOD : "syscall"
-  HOOK_OLDER  : "false"
+  HOOK_METHOD: "syscall"
+  HOOK_OLDER : "false"
 
-  KERNEL_PATCH: "true"   # kernel <= 4.9
+  KERNEL_PATCH: "true"
 
   KPM_ENABLE      : "false"
   KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
@@ -104,7 +104,10 @@ jobs:
         run: |
           # Only ${{ env.DEVICE_NAME }} use it.
           cd $GITHUB_WORKSPACE/device_kernel
-          # Nothing
+          # Disable vDSO32 — LLVM ld doesn't support ARM32 emulation
+          sed -i '/CONFIG_VDSO32/d' arch/arm64/configs/a11q_open_defconfig
+          echo "CONFIG_VDSO32=n" >> arch/arm64/configs/a11q_open_defconfig
+          echo "[+] vDSO32 disabled"
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
