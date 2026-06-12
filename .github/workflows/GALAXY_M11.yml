@@ -34,8 +34,8 @@ env:
   KERNELSU_AUTO_GET : "true"
   KERNELSU_AUTO_FORK: "resukisu"
 
-  SUSFS_ENABLE: true
-  SUSFS_FIXED : true
+  SUSFS_ENABLE: false
+  SUSFS_FIXED : false
 
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH : "master"
@@ -51,7 +51,6 @@ env:
   PACK_METHOD    : "Anykernel3"
   KERNELSU_METHOD: "shell"
 
-  # التوجيه للباتش الصحيح الخاص بكرنل 4.9 اللي أنت لقيته
   PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
   PATCHES_BRANCH    : "mainline"
   SUSFS_FOLDER_FIXED: "Patches/Patch"
@@ -62,7 +61,7 @@ env:
   HOOK_METHOD: "syscall"
   HOOK_OLDER : "true"
 
-  KERNEL_PATCH: "true"
+  KERNEL_PATCH: "false"
 
   KPM_ENABLE      : "false"
   KPM_PATCH_SOURCE: ""
