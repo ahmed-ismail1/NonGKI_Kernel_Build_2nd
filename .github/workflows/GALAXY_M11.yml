@@ -100,8 +100,8 @@ jobs:
       - name: ⚙️ Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🪝 Patch Kernel of SUSFS
-        uses: ./.github/workflows/patch-susfs
+      #- name: 🪝 Patch Kernel of SUSFS
+       # uses: ./.github/workflows/patch-susfs
 
       - name: 🪛 Extra Kernel Options
         run: |
