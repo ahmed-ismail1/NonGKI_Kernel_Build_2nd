@@ -12,7 +12,7 @@ env:
   CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
   EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
-  KERNEL_SOURCE: "https://github.com/ifoodplayer/android_kernel_samsung_sdm450.git"
+  KERNEL_SOURCE: "https://github.com/ahmed-ismail1/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH: "lineage-20"
 
   CLANG_SOURCE: "https://github.com/ZyCromerZ/Clang/releases/download/13.0.1-20230207-release/Clang-13.0.1-20230207.tar.gz"
@@ -32,7 +32,7 @@ env:
   KERNELSU_SOURCE   : ""
   KERNELSU_BRANCH   : ""
   KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK: "next"
+  KERNELSU_AUTO_FORK: "rsuntk"
 
   SUSFS_ENABLE: true
   SUSFS_FIXED : true
@@ -79,7 +79,7 @@ env:
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
-  FREE_MORE_SPACE: "true"   # ✅ بيحرر ~15GB قبل البناء
+  FREE_MORE_SPACE: "true"   
 
 jobs:
   build-kernel:
