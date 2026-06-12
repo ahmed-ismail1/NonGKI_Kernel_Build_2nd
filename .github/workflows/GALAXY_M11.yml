@@ -55,7 +55,7 @@ env:
   PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
   PATCHES_BRANCH    : "mainline"
   SUSFS_FOLDER_FIXED: "Patches/Patch"
-  SUSFS_PATCH_FIXED : "susfs_patch_to_4.9.patch"
+  SUSFS_PATCH_FIXED : "susfs_patch_to_4.9"
 
   REKERNEL_ENABLE: ""
 
