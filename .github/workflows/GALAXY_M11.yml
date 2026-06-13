@@ -34,7 +34,7 @@ env:
   KERNELSU_AUTO_GET : "true"
   KERNELSU_AUTO_FORK: "resukisu"
 
-  SUSFS_ENABLE: false
+  SUSFS_ENABLE: true
   SUSFS_FIXED : false
 
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
@@ -75,7 +75,7 @@ env:
   GENERATE_CHIP : "qcom"
 
   BUILD_DEBUGGER    : "true"
-  SKIP_PATCH        : "true" 
+  SKIP_PATCH        : "false" 
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
