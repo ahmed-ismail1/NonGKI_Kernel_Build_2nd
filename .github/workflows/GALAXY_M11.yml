@@ -113,6 +113,40 @@ jobs:
           grep -q "kernelsu" drivers/Makefile || printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> drivers/Makefile
           grep -q "source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig || sed -i "/endmenu/i\source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig
           
+          cat <<EOF >> drivers/kernelsu/Kconfig
+
+          config KSU_MANUAL_HOOK
+              bool "KernelSU Manual Hook"
+              default y
+          config KSU_SUSFS
+              bool "KernelSU SUSFS"
+              default y
+          config KSU_SUSFS_SUS_PATH
+              bool "KernelSU SUSFS PATH"
+              default y
+          config KSU_SUSFS_SUS_MOUNT
+              bool "KernelSU SUSFS MOUNT"
+              default y
+          config KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+              bool "KernelSU SUSFS AUTO_ADD_SUS_KSU_DEFAULT_MOUNT"
+              default y
+          config KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+              bool "KernelSU SUSFS AUTO_ADD_SUS_BIND_MOUNT"
+              default y
+          config KSU_SUSFS_SPOOF_UNAME
+              bool "KernelSU SUSFS SPOOF_UNAME"
+              default y
+          config KSU_SUSFS_ENABLE_ALGO
+              bool "KernelSU SUSFS ENABLE_ALGO"
+              default y
+          config KSU_SUSFS_OPEN_REDIRECT
+              bool "KernelSU SUSFS OPEN_REDIRECT"
+              default y
+          config KSU_SUSFS_SUS_SU
+              bool "KernelSU SUSFS SUS_SU"
+              default y
+          EOF
+          
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_NONE_HOOK=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
@@ -130,8 +164,9 @@ jobs:
           
           echo "# CONFIG_SECURITY_DEFKNOT is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "# CONFIG_KNOX_KAP is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "# CONFIG_SEC_RESTRICT is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-      - name: 🚀 Build Process
+          echo "# CONFIG_SEC_RESTRICT is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }} 
+          
+          - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 
       - name: 🔩 Pack Process
