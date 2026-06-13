@@ -6,11 +6,11 @@ on:
 
 env:
   # Device env
-  DEVICE_NAME    : "galaxy_m11"
+  DEVICE_NAME: "galaxy_m11"
   DEVICE_CODENAME: "a11q"
 
   CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
-  EXTRA_CMDS : "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+  EXTRA_CMDS: "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
   KERNEL_SOURCE: "https://github.com/ahmed-ismail1/android_kernel_samsung_sdm450.git"
   KERNEL_BRANCH: "lineage-20"
@@ -18,64 +18,64 @@ env:
   CLANG_SOURCE: "https://github.com/ZyCromerZ/Clang/releases/download/13.0.1-20230207-release/Clang-13.0.1-20230207.tar.gz"
   CLANG_BRANCH: ""
 
-  GCC_GNU      : true
+  GCC_GNU: true
   GCC_64_SOURCE: "https://github.com/mvaisakh/gcc-arm64/archive/refs/heads/gcc-master.zip"
   GCC_64_BRANCH: ""
   GCC_32_SOURCE: "https://github.com/mvaisakh/gcc-arm/archive/refs/heads/gcc-master.zip"
   GCC_32_BRANCH: ""
 
-  DEFCONFIG_SOURCE      : ""
-  DEFCONFIG_NAME        : "a11q_open_defconfig"
+  DEFCONFIG_SOURCE: ""
+  DEFCONFIG_NAME: "a11q_open_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
-  DEFCONFIG_FROM_BOOT   : false
+  DEFCONFIG_FROM_BOOT: false
 
-  KERNELSU_SOURCE   : ""
-  KERNELSU_BRANCH   : ""
-  KERNELSU_AUTO_GET : "false"
-  KERNELSU_AUTO_FORK: ""
+  KERNELSU_SOURCE: ""
+  KERNELSU_BRANCH: ""
+  KERNELSU_AUTO_GET: "true"
+  KERNELSU_AUTO_FORK: "resukisu"
 
   SUSFS_ENABLE: false
-  SUSFS_FIXED : false
+  SUSFS_FIXED: false
 
-  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
-  AK3_BRANCH : "master"
+  AK3_SOURCE: "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH: "master"
   BOOT_SOURCE: ""
 
-  NEED_DTBO      : false
-  NEED_SAFE_DTBO : false
+  NEED_DTBO: false
+  NEED_SAFE_DTBO: false
 
   ROM_TEXT: "lineage20"
 
   PYTHON_VERSION: "3"
 
-  PACK_METHOD    : "Anykernel3"
-  KERNELSU_METHOD: "none"
+  PACK_METHOD: "Anykernel3"
+  KERNELSU_METHOD: "shell"
 
-  PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
-  PATCHES_BRANCH    : "mainline"
+  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Build_2nd"
+  PATCHES_BRANCH: "mainline"
   SUSFS_FOLDER_FIXED: "Patches/Patch"
-  SUSFS_PATCH_FIXED : "susfs_patch_to_4.9"
+  SUSFS_PATCH_FIXED: "susfs_patch_to_4.9"
 
   REKERNEL_ENABLE: ""
 
   HOOK_METHOD: "syscall"
-  HOOK_OLDER : "true"
+  HOOK_OLDER: "true"
 
   KERNEL_PATCH: "false"
 
-  KPM_ENABLE      : "false"
+  KPM_ENABLE: "false"
   KPM_PATCH_SOURCE: ""
 
   BASEBAND_GUARD_ENABLE: "false"
-  BASEBAND_GUARD_BOOT  : "false"
+  BASEBAND_GUARD_BOOT: "false"
 
   HIDE_STUFF: "false"
 
-  GENERATE_DTB  : "false"
-  GENERATE_CHIP : "qcom"
+  GENERATE_DTB: "false"
+  GENERATE_CHIP: "qcom"
 
-  BUILD_DEBUGGER    : "true"
-  SKIP_PATCH        : "true" 
+  BUILD_DEBUGGER: "true"
+  SKIP_PATCH: "true" 
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
@@ -88,9 +88,9 @@ jobs:
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
-      CCACHE_HARDLINK : "true"
+      CCACHE_HARDLINK: "true"
 
-steps:
+    steps:
       - name: ⏰ Checkout repository
         uses: actions/checkout@v4
 
