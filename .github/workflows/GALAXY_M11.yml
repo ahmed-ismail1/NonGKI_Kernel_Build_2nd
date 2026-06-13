@@ -112,8 +112,10 @@ jobs:
           ln -sf ../KernelSU/kernel drivers/kernelsu
           grep -q "kernelsu" drivers/Makefile || printf "\nobj-y += kernelsu/\n" >> drivers/Makefile
           
-          sed -i 's/obj-$(CONFIG_KSU_MANUAL_HOOK)/obj-y/g' drivers/kernelsu/hook/Makefile || true
-          sed -i 's/obj-$(CONFIG_KSU_MANUAL_HOOK)/obj-y/g' drivers/kernelsu/Makefile || true
+          sed -i '1i CONFIG_KSU_MANUAL_HOOK := y\nCONFIG_KSU_SUSFS := y\n' KernelSU/kernel/Makefile || true
+          sed -i '1i CONFIG_KSU_MANUAL_HOOK := y\nCONFIG_KSU_SUSFS := y\n' KernelSU/kernel/Kbuild || true
+          
+          sed -i '/No hooks were defined/d' KernelSU/kernel/Kbuild || true
           
           cat <<EOF >> include/linux/kconfig.h
           #define CONFIG_KSU 1
