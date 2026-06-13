@@ -29,8 +29,8 @@ env:
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT   : false
 
-  KERNELSU_SOURCE   : "https://github.com/tiann/KernelSU.git"
-  KERNELSU_BRANCH   : "main"
+  KERNELSU_SOURCE   : ""
+  KERNELSU_BRANCH   : ""
   KERNELSU_AUTO_GET : "false"
   KERNELSU_AUTO_FORK: ""
 
@@ -49,7 +49,7 @@ env:
   PYTHON_VERSION: "3"
 
   PACK_METHOD    : "Anykernel3"
-  KERNELSU_METHOD: "manual"
+  KERNELSU_METHOD: "none"
 
   PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
   PATCHES_BRANCH    : "mainline"
@@ -106,6 +106,11 @@ jobs:
       - name: 🪛 Extra Kernel Options
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
+          
+          git clone https://github.com/backslashxx/ReSukiSU.git -b main KernelSU
+          ln -sf ../KernelSU/kernel drivers/kernelsu
+          grep -q "kernelsu" drivers/Makefile || printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> drivers/Makefile
+          grep -q "source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig || sed -i "/endmenu/i\source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig
           
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
