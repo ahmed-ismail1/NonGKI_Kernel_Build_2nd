@@ -51,8 +51,8 @@ env:
   PACK_METHOD    : "Anykernel3"
   KERNELSU_METHOD: "shell"
 
-  PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
-  PATCHES_BRANCH    : "mainline"
+  PATCHES_SOURCE    : "ahmed-ismail1/NonGKI_Kernel_Build_2nd"
+  PATCHES_BRANCH    : "TEST"
   SUSFS_FOLDER_FIXED: "Patches/Patch"
   SUSFS_PATCH_FIXED : "susfs_patch_to_4.9"
 
