@@ -29,12 +29,12 @@ env:
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT   : false
 
-  KERNELSU_SOURCE   : ""
-  KERNELSU_BRANCH   : ""
-  KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK: "resukisu"
+  KERNELSU_SOURCE   : "https://github.com/tiann/KernelSU.git"
+  KERNELSU_BRANCH   : "main"
+  KERNELSU_AUTO_GET : "false"
+  KERNELSU_AUTO_FORK: ""
 
-  SUSFS_ENABLE: true
+  SUSFS_ENABLE: false
   SUSFS_FIXED : false
 
   AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
@@ -49,10 +49,10 @@ env:
   PYTHON_VERSION: "3"
 
   PACK_METHOD    : "Anykernel3"
-  KERNELSU_METHOD: "shell"
+  KERNELSU_METHOD: "manual"
 
-  PATCHES_SOURCE    : "ahmed-ismail1/NonGKI_Kernel_Build_2nd"
-  PATCHES_BRANCH    : "TEST"
+  PATCHES_SOURCE    : "JackA1ltman/NonGKI_Kernel_Build_2nd"
+  PATCHES_BRANCH    : "mainline"
   SUSFS_FOLDER_FIXED: "Patches/Patch"
   SUSFS_PATCH_FIXED : "susfs_patch_to_4.9"
 
@@ -75,7 +75,7 @@ env:
   GENERATE_CHIP : "qcom"
 
   BUILD_DEBUGGER    : "true"
-  SKIP_PATCH        : "true"  
+  SKIP_PATCH        : "true" 
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
@@ -108,6 +108,8 @@ jobs:
           cd $GITHUB_WORKSPACE/device_kernel
           
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_KSU_NONE_HOOK=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KPROBES=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
