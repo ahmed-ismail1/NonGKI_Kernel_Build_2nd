@@ -102,24 +102,22 @@ jobs:
 
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
-
+        
       - name: 🪛 Extra Kernel Options
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           
           rm -rf KernelSU drivers/kernelsu
-          
           git clone https://github.com/KernelSU-Next/KernelSU-Next.git -b legacy-susfs KernelSU
-          
           ln -sf ../KernelSU/kernel drivers/kernelsu
           grep -q "kernelsu" drivers/Makefile || printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> drivers/Makefile
+          grep -q "kernelsu" drivers/Kconfig || echo 'source "drivers/kernelsu/Kconfig"' >> drivers/Kconfig
           
-          if ! grep -q "kernelsu" drivers/Kconfig; then
-              echo 'source "drivers/kernelsu/Kconfig"' >> drivers/Kconfig
-          fi
-          
-          if ! grep -q "KSU_SUSFS_SUS_MOUNT" drivers/kernelsu/Kconfig; then
-              cat <<EOF >> drivers/kernelsu/Kconfig
+          if ! grep -q "KSU_SUSFS_SUS_MOUNT" fs/Kconfig; then
+              cat <<EOF >> fs/Kconfig
+          config KSU_SUSFS
+              bool "KernelSU SUSFS"
+              default y
           config KSU_SUSFS_SUS_PATH
               bool "KernelSU SUSFS PATH"
               default y
@@ -147,9 +145,9 @@ jobs:
           EOF
           fi
           
+          # 3. كتابة الإعدادات في الـ defconfig (دلوقتي النظام هيحترمها ومش هيمسحها)
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "CONFIG_KSU_NONE_HOOK=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KPROBES=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_HAVE_SYSCALL_TRACEPOINTS=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           
@@ -162,10 +160,6 @@ jobs:
           echo "CONFIG_KSU_SUSFS_ENABLE_ALGO=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          
-          echo "# CONFIG_SECURITY_DEFKNOT is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "# CONFIG_KNOX_KAP is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "# CONFIG_SEC_RESTRICT is not set" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
