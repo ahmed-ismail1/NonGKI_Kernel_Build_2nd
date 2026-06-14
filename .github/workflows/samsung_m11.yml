@@ -81,7 +81,7 @@ env:
 
 jobs:
   build-kernel:
-    name: Samsung Galaxy M11 (LineageOS 20)
+    name: Samsung Galaxy M11 LineageOS 20
     runs-on: ubuntu-latest
 
     env:
@@ -90,89 +90,116 @@ jobs:
       CCACHE_HARDLINK: "true"
 
     steps:
-      - name: ⏰ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⌛️ Compilation environment preparation
+      - name: Compilation environment preparation
         uses: ./.github/workflows/build-env
 
-      - name: ⚙️ Get necessary tools
+      - name: Get necessary tools
         uses: ./.github/workflows/build-ready
 
-      - name: 🪝 Patch Kernel of SUSFS
+      - name: Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
 
-      - name: 🩹 M11 SUSFS partial compatibility fix
+      - name: M11 SUSFS partial compatibility fix
         run: |
           cd "$GITHUB_WORKSPACE/device_kernel"
 
           echo "====== M11 SUSFS partial compatibility fix ======"
 
-          echo "[*] Cleaning rejected/original patch leftovers..."
-          find . -type f \( -name "*.rej" -o -name "*.orig" \) -print -delete || true
-
-          echo "[*] Fixing missing SUSFS namespace top block if needed..."
-
-          cat > /tmp/m11_susfs_fix.py <<'PY'
-from pathlib import Path
-
-p = Path("fs/namespace.c")
-s = p.read_text()
-
-insert_after = '#include <linux/task_work.h>\n'
-include_block = '''#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-#include <linux/susfs_def.h>
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-'''
-
-if "linux/susfs_def.h" not in s and insert_after in s:
-    s = s.replace(insert_after, insert_after + include_block, 1)
-
-marker = '#include "internal.h"\n'
-extern_block = '''
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-extern bool susfs_is_current_ksu_domain(void);
-extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
-
-#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
-
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-
-'''
-
-if "susfs_is_current_ksu_domain" not in s and marker in s:
-    s = s.replace(marker, marker + extern_block, 1)
-
-p.write_text(s)
-PY
-
-          python3 /tmp/m11_susfs_fix.py
-
-          echo "[*] Disabling SUSFS features whose patch hunks failed on M11..."
+          echo "[*] Cleanup .rej and .orig files"
+          find . -type f -name "*.rej" -print -delete || true
+          find . -type f -name "*.orig" -print -delete || true
 
           DEFCONFIG="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
+
+          echo "[*] Add SUSFS namespace include block if missing"
+
+          if ! grep -q "linux/susfs_def.h" fs/namespace.c; then
+            {
+              echo "#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"
+              echo "#include <linux/susfs_def.h>"
+              echo "#endif"
+            } > /tmp/susfs_include_block.txt
+
+            awk '
+              NR==FNR {
+                block = block $0 ORS
+                next
+              }
+              /#include <linux\/task_work.h>/ && done == 0 {
+                print
+                printf "%s", block
+                done = 1
+                next
+              }
+              {
+                print
+              }
+            ' /tmp/susfs_include_block.txt fs/namespace.c > /tmp/namespace.c.new
+
+            mv /tmp/namespace.c.new fs/namespace.c
+          fi
+
+          echo "[*] Add SUSFS namespace extern block if missing"
+
+          if ! grep -q "susfs_is_current_ksu_domain" fs/namespace.c; then
+            {
+              echo ""
+              echo "#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"
+              echo "extern bool susfs_is_current_ksu_domain(void);"
+              echo "extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;"
+              echo ""
+              echo "#ifndef CL_COPY_MNT_NS"
+              echo "#define CL_COPY_MNT_NS BIT(25)"
+              echo "#endif"
+              echo ""
+              echo "#endif"
+              echo ""
+            } > /tmp/susfs_extern_block.txt
+
+            awk '
+              NR==FNR {
+                block = block $0 ORS
+                next
+              }
+              /#include "internal.h"/ && done == 0 {
+                print
+                printf "%s", block
+                done = 1
+                next
+              }
+              {
+                print
+              }
+            ' /tmp/susfs_extern_block.txt fs/namespace.c > /tmp/namespace.c.new
+
+            mv /tmp/namespace.c.new fs/namespace.c
+          fi
+
+          echo "[*] Disable SUSFS features that failed on M11"
 
           sed -i '/CONFIG_KSU_SUSFS_SUS_KSTAT/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_OPEN_REDIRECT/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_SUS_MAP/d' "$DEFCONFIG" || true
 
-          {
-            echo "# CONFIG_KSU_SUSFS_SUS_KSTAT is not set"
-            echo "# CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG is not set"
-            echo "# CONFIG_KSU_SUSFS_OPEN_REDIRECT is not set"
-            echo "# CONFIG_KSU_SUSFS_SUS_MAP is not set"
-          } >> "$DEFCONFIG"
+          echo "# CONFIG_KSU_SUSFS_SUS_KSTAT is not set" >> "$DEFCONFIG"
+          echo "# CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG is not set" >> "$DEFCONFIG"
+          echo "# CONFIG_KSU_SUSFS_OPEN_REDIRECT is not set" >> "$DEFCONFIG"
+          echo "# CONFIG_KSU_SUSFS_SUS_MAP is not set" >> "$DEFCONFIG"
 
-          echo "[*] Keep SUSFS core/basic features enabled..."
-          grep -q '^CONFIG_KSU_SUSFS=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG"
-          grep -q '^CONFIG_KSU_SUSFS_SUS_PATH=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$DEFCONFIG"
-          grep -q '^CONFIG_KSU_SUSFS_SUS_MOUNT=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$DEFCONFIG"
-          grep -q '^CONFIG_KSU_SUSFS_SPOOF_UNAME=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$DEFCONFIG"
-          grep -q '^CONFIG_KSU_SUSFS_ENABLE_LOG=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$DEFCONFIG"
-          grep -q '^CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y' "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$DEFCONFIG"
+          echo "[*] Keep SUSFS core features enabled"
 
-          echo "====== Verify important SUSFS files ======"
+          grep -q "^CONFIG_KSU_SUSFS=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG"
+          grep -q "^CONFIG_KSU_SUSFS_SUS_PATH=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$DEFCONFIG"
+          grep -q "^CONFIG_KSU_SUSFS_SUS_MOUNT=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$DEFCONFIG"
+          grep -q "^CONFIG_KSU_SUSFS_SPOOF_UNAME=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$DEFCONFIG"
+          grep -q "^CONFIG_KSU_SUSFS_ENABLE_LOG=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$DEFCONFIG"
+          grep -q "^CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" "$DEFCONFIG" || echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$DEFCONFIG"
+
+          echo "====== Verify SUSFS files ======"
           ls -lah fs/susfs.c include/linux/susfs.h include/linux/susfs_def.h || true
 
           echo "====== Verify susfs_is_mnt_dev_hidden ======"
@@ -184,7 +211,7 @@ PY
           echo "====== Final SUSFS defconfig state ======"
           grep -n "KSU_SUSFS" "$DEFCONFIG" || true
 
-      - name: 🧪 Debug SUSFS after patch
+      - name: Debug SUSFS after patch
         run: |
           cd "$GITHUB_WORKSPACE/device_kernel"
 
@@ -200,16 +227,13 @@ PY
           echo "====== Check SUSFS refs in namespace.c ======"
           grep -n "susfs" fs/namespace.c || true
 
-          echo "====== Check SUSFS source symbols ======"
-          grep -n "susfs_" fs/susfs.c || true
-
           echo "====== Check remaining .rej files ======"
           find . -type f -name "*.rej" -print || true
 
-      - name: 🔗 Patch for no-kprobe
+      - name: Patch for no-kprobe
         uses: ./.github/workflows/patch-no-kprobe
 
-      - name: 🪛 Extra Kernel Options
+      - name: Extra Kernel Options
         run: |
           cd "$GITHUB_WORKSPACE/device_kernel"
 
@@ -221,11 +245,11 @@ PY
           echo "====== Final KSU/SUSFS defconfig entries ======"
           grep -n "KSU\|SUSFS" "$DEFCONFIG" || true
 
-      - name: 🚀 Build Process
+      - name: Build Process
         uses: ./.github/workflows/build-process
 
-      - name: 🔩 Pack Process
+      - name: Pack Process
         uses: ./.github/workflows/pack-process
 
-      - name: ✏️ Upload Artifacts
+      - name: Upload Artifacts
         uses: ./.github/workflows/upload-files
