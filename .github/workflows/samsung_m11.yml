@@ -34,7 +34,7 @@ env:
   KERNELSU_AUTO_FORK: "resukisu"
 
   SUSFS_ENABLE: true
-  SUSFS_FIXED: true
+  SUSFS_FIXED: false
 
   AK3_SOURCE: "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH: "master"
@@ -48,11 +48,12 @@ env:
   PACK_METHOD: "Anykernel3"
   PACK_KMODULES: "false"
   KERNELSU_METHOD: "shell"
+  KERNELSU_SUS_PATCH: "false"
 
-  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
-  PATCHES_BRANCH: "main"
-  SUSFS_FOLDER_FIXED: "a11q_susfs_49"
-  SUSFS_PATCH_FIXED: "susfs_fixed"
+  PATCHES_SOURCE: ""
+  PATCHES_BRANCH: ""
+  SUSFS_FOLDER_FIXED: ""
+  SUSFS_PATCH_FIXED: ""
 
   REKERNEL_ENABLE: "false"
   DROIDSPACES_ENABLE: "false"
@@ -82,6 +83,7 @@ jobs:
   build-kernel:
     name: Samsung Galaxy M11 (LineageOS 20)
     runs-on: ubuntu-latest
+
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
@@ -100,14 +102,37 @@ jobs:
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
 
+      - name: 🧪 Debug SUSFS after patch
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+
+          echo "====== Kernel version ======"
+          make kernelversion || true
+
+          echo "====== Check fs/susfs.c ======"
+          ls -lah fs/susfs.c || true
+
+          echo "====== Check susfs_is_mnt_dev_hidden ======"
+          grep -R "susfs_is_mnt_dev_hidden" fs/ || true
+
+          echo "====== Check SUSFS refs in namespace.c ======"
+          grep -n "susfs" fs/namespace.c || true
+
+          echo "====== Check SUSFS source symbols ======"
+          grep -n "susfs_" fs/susfs.c || true
+
       - name: 🔗 Patch for no-kprobe
         uses: ./.github/workflows/patch-no-kprobe
 
       - name: 🪛 Extra Kernel Options
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
+
           echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_KSU_LSM_SECURITY_HOOKS=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+
+          echo "====== Final KSU/SUSFS defconfig entries ======"
+          grep -n "KSU\|SUSFS" ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }} || true
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
