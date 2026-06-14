@@ -166,84 +166,104 @@ jobs:
           # ─────────────────────────────────────────────────────
           # FIX 1 — fs/susfs.c version mismatch
           #
-          # The lineage-20 kernel branch has an OLD fs/susfs.c that is
-          # missing the API functions called from the already-patched
-          # fs/namespace.c:
-          #   susfs_is_mnt_dev_hidden, susfs_sus_mount, susfs_sus_umount,
-          #   __is_path_android_data, susfs_run_sus_path_loop
+          # ROOT CAUSE:
+          # The lineage-20 branch has fs/namespace.c patched with a NEWER
+          # SuSFS API that calls susfs_is_mnt_dev_hidden, susfs_run_sus_path_loop
+          # etc., but fs/susfs.c in the same branch is an OLDER version that
+          # doesn't define those functions.
           #
-          # Strategy (tries 3 sources in order):
+          # WHY filterdiff FAILS:
+          # susfs_patch_to_4.9.patch creates an OLD fs/susfs.c that also lacks
+          # these functions — using filterdiff on it gives the same old content.
+          # So filterdiff is INTENTIONALLY skipped here.
+          #
+          # Strategy (tries sources in order, stops at first hit):
           #   1. SuSFS files bundled inside KernelSU-Next repo
-          #   2. filterdiff — extract susfs.c directly from the patch file
-          #   3. Clone simonpunk/susfs4ksu as final fallback
+          #   2. simonpunk/susfs4ksu (main branch — has newer API)
+          #   3. simonpunk/susfs4ksu (kernel-4.9 branch)
+          #   4. wget direct from raw GitHub as last resort
           # ─────────────────────────────────────────────────────
-          echo "[+] FIX 1: Updating fs/susfs.c to match patched namespace.c API..."
+          echo "[+] FIX 1: Updating fs/susfs.c to correct version..."
 
           # Source 1 — check KernelSU-Next repo for bundled susfs files
-          SUSFS_C_SRC=""
           for p in \
               "drivers/kernelsu_repo/kernel/susfs/susfs.c" \
               "drivers/kernelsu_repo/fs/susfs.c" \
-              "drivers/kernelsu_repo/kernel/susfs.c"; do
-            if [ -f "$p" ]; then
-              SUSFS_C_SRC="$p"
+              "drivers/kernelsu_repo/kernel/susfs.c" \
+              "drivers/kernelsu_repo/susfs/fs/susfs.c"; do
+            if [ -f "$p" ] && grep -q "susfs_is_mnt_dev_hidden" "$p" 2>/dev/null; then
+              cp "$p" fs/susfs.c
+              echo "✅ fs/susfs.c got from KernelSU-Next bundled files ($p)"
               break
             fi
           done
 
-          if [ -n "$SUSFS_C_SRC" ]; then
-            cp "$SUSFS_C_SRC" fs/susfs.c
-            echo "✅ fs/susfs.c updated from KernelSU-Next ($SUSFS_C_SRC)"
-          fi
-
-          # Source 2 — filterdiff the patch file (most reliable for our setup)
+          # Source 2 — simonpunk/susfs4ksu (main branch — most likely to have new API)
           if ! grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
-            echo "[+] Trying filterdiff from susfs_patch_to_4.9.patch..."
-            sudo apt-get install -y patchutils -q 2>/dev/null || true
-            SUSFS_PATCH="/tmp/Patches/Patch/susfs_patch_to_4.9.patch"
+            echo "[+] Trying simonpunk/susfs4ksu main branch..."
+            rm -rf /tmp/susfs4ksu_main
+            git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git \
+                -b main /tmp/susfs4ksu_main 2>/dev/null || true
 
-            if [ -f "$SUSFS_PATCH" ] && command -v filterdiff &>/dev/null; then
-              # Remove old file first so patch recreates it cleanly
-              rm -f fs/susfs.c include/linux/susfs.h
-
-              filterdiff -p1 -i 'fs/susfs.c' "$SUSFS_PATCH" | \
-                  patch -p1 --force -l -r /dev/null 2>/dev/null && \
-                  echo "✅ fs/susfs.c extracted from patch" || \
-                  echo "⚠️  filterdiff on susfs.c failed"
-
-              filterdiff -p1 -i 'include/linux/susfs.h' "$SUSFS_PATCH" | \
-                  patch -p1 --force -l -r /dev/null 2>/dev/null && \
-                  echo "✅ include/linux/susfs.h extracted from patch" || true
+            FOUND_SUSFS_C=""
+            FOUND_SUSFS_H=""
+            for p in \
+                "/tmp/susfs4ksu_main/kernel_patches/fs/susfs.c" \
+                "/tmp/susfs4ksu_main/fs/susfs.c" \
+                "/tmp/susfs4ksu_main/susfs.c"; do
+              if [ -f "$p" ] && grep -q "susfs_is_mnt_dev_hidden" "$p" 2>/dev/null; then
+                FOUND_SUSFS_C="$p"; break
+              fi
+            done
+            for p in \
+                "/tmp/susfs4ksu_main/kernel_patches/include/linux/susfs.h" \
+                "/tmp/susfs4ksu_main/include/linux/susfs.h"; do
+              if [ -f "$p" ]; then FOUND_SUSFS_H="$p"; break; fi
+            done
+            if [ -n "$FOUND_SUSFS_C" ]; then
+              cp "$FOUND_SUSFS_C" fs/susfs.c
+              [ -n "$FOUND_SUSFS_H" ] && cp "$FOUND_SUSFS_H" include/linux/susfs.h
+              echo "✅ fs/susfs.c got from simonpunk/main"
             fi
           fi
 
-          # Source 3 — simonpunk/susfs4ksu as last resort
+          # Source 3 — simonpunk/susfs4ksu (kernel-4.9 branch)
           if ! grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
-            echo "[+] Fallback: cloning simonpunk/susfs4ksu..."
+            echo "[+] Trying simonpunk/susfs4ksu kernel-4.9 branch..."
+            rm -rf /tmp/susfs4ksu_49
             git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git \
-                -b kernel-4.9 /tmp/susfs4ksu 2>/dev/null || \
-            git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git \
-                /tmp/susfs4ksu 2>/dev/null || true
+                -b kernel-4.9 /tmp/susfs4ksu_49 2>/dev/null || true
 
             for p in \
-                "/tmp/susfs4ksu/kernel_patches/fs/susfs.c" \
-                "/tmp/susfs4ksu/fs/susfs.c"; do
-              if [ -f "$p" ]; then
+                "/tmp/susfs4ksu_49/kernel_patches/fs/susfs.c" \
+                "/tmp/susfs4ksu_49/fs/susfs.c"; do
+              if [ -f "$p" ] && grep -q "susfs_is_mnt_dev_hidden" "$p" 2>/dev/null; then
                 cp "$p" fs/susfs.c
-                echo "✅ fs/susfs.c copied from simonpunk ($p)"
+                for h in \
+                    "/tmp/susfs4ksu_49/kernel_patches/include/linux/susfs.h" \
+                    "/tmp/susfs4ksu_49/include/linux/susfs.h"; do
+                  [ -f "$h" ] && cp "$h" include/linux/susfs.h && break
+                done
+                echo "✅ fs/susfs.c got from simonpunk/kernel-4.9"
                 break
               fi
             done
+          fi
 
-            for p in \
-                "/tmp/susfs4ksu/kernel_patches/include/linux/susfs.h" \
-                "/tmp/susfs4ksu/include/linux/susfs.h"; do
-              if [ -f "$p" ]; then
-                cp "$p" include/linux/susfs.h
-                echo "✅ susfs.h copied from simonpunk"
-                break
-              fi
-            done
+          # Source 4 — wget raw content from known-good commit
+          if ! grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
+            echo "[+] Trying raw wget fallback..."
+            # Try latest commit on main branch of simonpunk
+            wget -q -O /tmp/susfs_raw.c \
+              "https://raw.githubusercontent.com/simonpunk/susfs4ksu/main/kernel_patches/fs/susfs.c" \
+              2>/dev/null || true
+            if grep -q "susfs_is_mnt_dev_hidden" /tmp/susfs_raw.c 2>/dev/null; then
+              cp /tmp/susfs_raw.c fs/susfs.c
+              wget -q -O include/linux/susfs.h \
+                "https://raw.githubusercontent.com/simonpunk/susfs4ksu/main/kernel_patches/include/linux/susfs.h" \
+                2>/dev/null || true
+              echo "✅ fs/susfs.c downloaded via wget"
+            fi
           fi
 
           # Verify susfs.c is now correct
