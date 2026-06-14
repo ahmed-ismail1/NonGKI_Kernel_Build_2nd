@@ -146,7 +146,7 @@ jobs:
           
           # Step 2: Clone KernelSU-Next
           echo "[+] Step 2: Cloning KernelSU-Next..."
-          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs KernelSU || {
+          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs KernelSU || {
               echo "❌ Failed to clone KernelSU-Next"
               exit 1
           }
