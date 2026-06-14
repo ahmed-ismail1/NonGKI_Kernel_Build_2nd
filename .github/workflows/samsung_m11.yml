@@ -71,7 +71,6 @@ env:
   GENERATE_DTB: "false"
   GENERATE_CHIP: "qcom"
 
-  # مهم: نخليه false عشان patch-susfs مايقفش عند .rej
   BUILD_DEBUGGER: "false"
   SKIP_PATCH: "false"
 
@@ -105,7 +104,7 @@ jobs:
 
       - name: 🩹 M11 SUSFS partial compatibility fix
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel
+          cd "$GITHUB_WORKSPACE/device_kernel"
 
           echo "====== M11 SUSFS partial compatibility fix ======"
 
@@ -114,13 +113,12 @@ jobs:
 
           echo "[*] Fixing missing SUSFS namespace top block if needed..."
 
-          python3 - <<'PY'
+          cat > /tmp/m11_susfs_fix.py <<'PY'
 from pathlib import Path
 
 p = Path("fs/namespace.c")
 s = p.read_text()
 
-# Add susfs_def include after task_work include if the failed hunk did not apply
 insert_after = '#include <linux/task_work.h>\n'
 include_block = '''#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 #include <linux/susfs_def.h>
@@ -130,7 +128,6 @@ include_block = '''#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 if "linux/susfs_def.h" not in s and insert_after in s:
     s = s.replace(insert_after, insert_after + include_block, 1)
 
-# Add externs and CL_COPY_MNT_NS after fs/internal includes area
 marker = '#include "internal.h"\n'
 extern_block = '''
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
@@ -149,17 +146,17 @@ if "susfs_is_current_ksu_domain" not in s and marker in s:
 p.write_text(s)
 PY
 
+          python3 /tmp/m11_susfs_fix.py
+
           echo "[*] Disabling SUSFS features whose patch hunks failed on M11..."
 
           DEFCONFIG="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
 
-          # Remove previous enabled entries added by patch-susfs
           sed -i '/CONFIG_KSU_SUSFS_SUS_KSTAT/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_OPEN_REDIRECT/d' "$DEFCONFIG" || true
           sed -i '/CONFIG_KSU_SUSFS_SUS_MAP/d' "$DEFCONFIG" || true
 
-          # Disable them explicitly for this first bootable test build
           {
             echo "# CONFIG_KSU_SUSFS_SUS_KSTAT is not set"
             echo "# CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG is not set"
@@ -189,7 +186,7 @@ PY
 
       - name: 🧪 Debug SUSFS after patch
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel
+          cd "$GITHUB_WORKSPACE/device_kernel"
 
           echo "====== Kernel version ======"
           make kernelversion || true
@@ -214,7 +211,7 @@ PY
 
       - name: 🪛 Extra Kernel Options
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel
+          cd "$GITHUB_WORKSPACE/device_kernel"
 
           DEFCONFIG="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
 
