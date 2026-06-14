@@ -114,69 +114,39 @@ jobs:
 
           DEFCONFIG="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
 
-          echo "[*] Add SUSFS namespace include block if missing"
+          echo "[*] Force insert SUSFS namespace compatibility block"
 
-          if ! grep -q "linux/susfs_def.h" fs/namespace.c; then
-            {
-              echo "#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"
-              echo "#include <linux/susfs_def.h>"
-              echo "#endif"
-            } > /tmp/susfs_include_block.txt
-
+          if ! grep -q "M11_SUSFS_NAMESPACE_COMPAT" fs/namespace.c; then
             awk '
-              NR==FNR {
-                block = block $0 ORS
-                next
-              }
-              /#include <linux\/task_work.h>/ && done == 0 {
+              /#include "internal.h"/ && inserted == 0 {
                 print
-                printf "%s", block
-                done = 1
+                print ""
+                print "/* M11_SUSFS_NAMESPACE_COMPAT */"
+                print "#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"
+                print "#include <linux/susfs_def.h>"
+                print "#include <linux/jump_label.h>"
+                print "extern bool susfs_is_current_ksu_domain(void);"
+                print "extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;"
+                print "#ifndef CL_COPY_MNT_NS"
+                print "#define CL_COPY_MNT_NS BIT(25)"
+                print "#endif"
+                print "#endif"
+                print ""
+                inserted = 1
                 next
               }
               {
                 print
               }
-            ' /tmp/susfs_include_block.txt fs/namespace.c > /tmp/namespace.c.new
+            ' fs/namespace.c > /tmp/namespace.c.new
 
             mv /tmp/namespace.c.new fs/namespace.c
+          else
+            echo "[*] M11 namespace compatibility block already exists"
           fi
 
-          echo "[*] Add SUSFS namespace extern block if missing"
-
-          if ! grep -q "susfs_is_current_ksu_domain" fs/namespace.c; then
-            {
-              echo ""
-              echo "#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"
-              echo "extern bool susfs_is_current_ksu_domain(void);"
-              echo "extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;"
-              echo ""
-              echo "#ifndef CL_COPY_MNT_NS"
-              echo "#define CL_COPY_MNT_NS BIT(25)"
-              echo "#endif"
-              echo ""
-              echo "#endif"
-              echo ""
-            } > /tmp/susfs_extern_block.txt
-
-            awk '
-              NR==FNR {
-                block = block $0 ORS
-                next
-              }
-              /#include "internal.h"/ && done == 0 {
-                print
-                printf "%s", block
-                done = 1
-                next
-              }
-              {
-                print
-              }
-            ' /tmp/susfs_extern_block.txt fs/namespace.c > /tmp/namespace.c.new
-
-            mv /tmp/namespace.c.new fs/namespace.c
-          fi
+          echo "[*] Verify namespace compatibility block"
+          grep -n "M11_SUSFS_NAMESPACE_COMPAT\|susfs_is_current_ksu_domain\|susfs_is_sdcard_android_data_not_decrypted\|CL_COPY_MNT_NS" fs/namespace.c || true
 
           echo "[*] Disable SUSFS features that failed on M11"
 
@@ -206,7 +176,7 @@ jobs:
           grep -R "susfs_is_mnt_dev_hidden" fs/ include/linux/ || true
 
           echo "====== Verify namespace SUSFS refs ======"
-          grep -n "susfs\|CL_COPY_MNT_NS" fs/namespace.c || true
+          grep -n "M11_SUSFS_NAMESPACE_COMPAT\|susfs\|CL_COPY_MNT_NS" fs/namespace.c || true
 
           echo "====== Final SUSFS defconfig state ======"
           grep -n "KSU_SUSFS" "$DEFCONFIG" || true
@@ -225,7 +195,7 @@ jobs:
           grep -R "susfs_is_mnt_dev_hidden" fs/ || true
 
           echo "====== Check SUSFS refs in namespace.c ======"
-          grep -n "susfs" fs/namespace.c || true
+          grep -n "M11_SUSFS_NAMESPACE_COMPAT\|susfs\|CL_COPY_MNT_NS" fs/namespace.c || true
 
           echo "====== Check remaining .rej files ======"
           find . -type f -name "*.rej" -print || true
@@ -238,6 +208,9 @@ jobs:
           cd "$GITHUB_WORKSPACE/device_kernel"
 
           DEFCONFIG="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
+
+          sed -i '/CONFIG_KSU_KPROBES_HOOK/d' "$DEFCONFIG" || true
+          sed -i '/CONFIG_KSU_LSM_SECURITY_HOOKS/d' "$DEFCONFIG" || true
 
           echo "CONFIG_KSU_KPROBES_HOOK=n" >> "$DEFCONFIG"
           echo "CONFIG_KSU_LSM_SECURITY_HOOKS=y" >> "$DEFCONFIG"
