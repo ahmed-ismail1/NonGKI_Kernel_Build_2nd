@@ -142,18 +142,21 @@ jobs:
           
           # Step 1: Clean old files
           echo "[+] Step 1: Cleaning up old KSU files..."
-          rm -rf KernelSU drivers/kernelsu
+          rm -rf KernelSU drivers/kernelsu drivers/kernelsu_repo
           
-          # Step 2: Clone KernelSU-Next
+          # Step 2: Clone KernelSU-Next perfectly inside drivers/
           echo "[+] Step 2: Cloning KernelSU-Next..."
-          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs KernelSU || {
+          # Fallback branch check for legacy_susfs vs legacy-susfs
+          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs drivers/kernelsu_repo || git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs drivers/kernelsu_repo || {
               echo "❌ Failed to clone KernelSU-Next"
               exit 1
           }
           
-          # Step 3: Setup drivers/kernelsu correctly
+          # Step 3: Setup drivers/kernelsu safely (In-tree Symlink)
           echo "[+] Step 3: Setting up kernel module directory..."
-          cp -r KernelSU/kernel drivers/kernelsu
+          cd drivers
+          ln -sf kernelsu_repo/kernel kernelsu
+          cd ..
           
           if [ ! -f "drivers/kernelsu/Makefile" ]; then
               echo "❌ ERROR: KernelSU Makefile not found in drivers/kernelsu!"
