@@ -107,7 +107,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           
-          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs KernelSU
+          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs KernelSU
           
           ln -sf ../KernelSU/kernel drivers/kernelsu
           grep -q "kernelsu" drivers/Makefile || printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> drivers/Makefile
