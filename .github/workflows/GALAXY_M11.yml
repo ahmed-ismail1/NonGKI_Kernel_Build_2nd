@@ -111,7 +111,6 @@ jobs:
           echo "[*] SUSFS Patch Verification Step"
           echo "==============================================="
           
-          # Check fs/namespace.c
           if grep -q "susfs_is_mnt_dev_hidden" fs/namespace.c; then
               echo "✅ SUSFS patch applied to fs/namespace.c"
           else
@@ -121,7 +120,6 @@ jobs:
               exit 1
           fi
           
-          # Check fs/proc/task_mmu.c
           if grep -q "susfs_open_redirect_spoof_show_map_vma" fs/proc/task_mmu.c; then
               echo "✅ SUSFS patch applied to fs/proc/task_mmu.c"
           else
@@ -134,8 +132,8 @@ jobs:
           echo "✅ All SUSFS patches verified successfully!"
           echo "==============================================="
 
-          - name: 🪛 Complete KernelSU & SUSFS Integration
-             run: |
+      - name: 🪛 Complete KernelSU & SUSFS Integration
+        run: |
           cd $GITHUB_WORKSPACE/device_kernel
           
           echo "==============================================="
@@ -146,7 +144,7 @@ jobs:
           echo "[+] Step 1: Cleaning up old KSU files..."
           rm -rf KernelSU drivers/kernelsu
           
-          # Step 2: Clone KernelSU-Next (Using your original working repo)
+          # Step 2: Clone KernelSU-Next
           echo "[+] Step 2: Cloning KernelSU-Next..."
           git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs KernelSU || {
               echo "❌ Failed to clone KernelSU-Next"
@@ -169,16 +167,20 @@ jobs:
           if ! grep -q "obj-\$(CONFIG_KSU)" drivers/Makefile; then
               echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
               echo "✅ Added to drivers/Makefile"
+          else
+              echo "⚠️ KernelSU already in drivers/Makefile"
           fi
           
           if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
               sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
               echo "✅ Added to drivers/Kconfig"
+          else
+              echo "⚠️ KernelSU Kconfig already linked in drivers/Kconfig"
           fi
           
-          # Ensure symbols are visible globally
           if ! grep -q "drivers/kernelsu/Kconfig" arch/arm64/Kconfig; then
               echo "source \"drivers/kernelsu/Kconfig\"" >> arch/arm64/Kconfig
+              echo "✅ Added to arch/arm64/Kconfig"
           fi
           
           # Step 5: Update defconfig
@@ -192,7 +194,7 @@ jobs:
           CONFIG_KSU_NONE_HOOK=n
           CONFIG_KPROBES=y
           CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
-
+          
           # KernelSU + SUSFS Integration
           CONFIG_KSU_SUSFS=y
           CONFIG_KSU_SUSFS_SUS_PATH=y
@@ -207,7 +209,7 @@ jobs:
           CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
           CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
           CONFIG_KSU_SUSFS_SUS_MAP=y
-
+          
           # Security Disable (Samsung specifics)
           # CONFIG_SECURITY_DEFKNOT is not set
           # CONFIG_KNOX_KAP is not set
@@ -216,12 +218,12 @@ jobs:
           
           echo "✅ Defconfig updated"
           echo "==============================================="
-          echo "==============================================="   
-          - name: 🚀 Build Process
-            uses: ./.github/workflows/build-process  
-        
-          - name: 🔩 Pack Process
-            uses: ./.github/workflows/pack-process
 
-          - name: ✏️ Upload Artifacts
-            uses: ./.github/workflows/upload-files
+      - name: 🚀 Build Process
+        uses: ./.github/workflows/build-process
+
+      - name: 🔩 Pack Process
+        uses: ./.github/workflows/pack-process
+
+      - name: ✏️ Upload Artifacts
+        uses: ./.github/workflows/upload-files
