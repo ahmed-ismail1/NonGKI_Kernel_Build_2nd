@@ -75,11 +75,11 @@ env:
   GENERATE_CHIP: "qcom"
 
   BUILD_DEBUGGER: "true"
-  SKIP_PATCH: "true" 
+  SKIP_PATCH: "true"
   BUILD_OTHER_CONFIG: "false"
   MERGE_CONFIG_FILES: ""
 
-  FREE_MORE_SPACE: "true"   
+  FREE_MORE_SPACE: "true"
 
 jobs:
   build-kernel:
@@ -106,71 +106,216 @@ jobs:
       - name: 🔍 Verify SUSFS Patch Application
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
-          
+
           echo "==============================================="
           echo "[*] SUSFS Patch Verification Step"
           echo "==============================================="
-          
+
           if grep -q "susfs_is_mnt_dev_hidden" fs/namespace.c; then
-              echo "✅ SUSFS patch applied to fs/namespace.c"
+            echo "✅ SUSFS patch applied to fs/namespace.c"
           else
-              echo "❌ ERROR: SUSFS patch NOT applied to fs/namespace.c"
-              echo "[*] Checking for any SUSFS references..."
-              grep -n "susfs" fs/namespace.c | head -20 || echo "No SUSFS references found"
-              exit 1
+            echo "❌ ERROR: SUSFS patch NOT applied to fs/namespace.c"
+            grep -n "susfs" fs/namespace.c | head -20 || echo "No SUSFS references found"
+            exit 1
           fi
-          
+
           if grep -q "susfs_open_redirect_spoof_show_map_vma" fs/proc/task_mmu.c; then
-              echo "✅ SUSFS patch applied to fs/proc/task_mmu.c"
+            echo "✅ SUSFS patch applied to fs/proc/task_mmu.c"
           else
-              echo "❌ ERROR: SUSFS patch NOT applied to fs/proc/task_mmu.c"
-              echo "[*] Checking for any SUSFS references..."
-              grep -n "susfs" fs/proc/task_mmu.c | head -20 || echo "No SUSFS references found"
-              exit 1
+            echo "❌ ERROR: SUSFS patch NOT applied to fs/proc/task_mmu.c"
+            grep -n "susfs" fs/proc/task_mmu.c | head -20 || echo "No SUSFS references found"
+            exit 1
           fi
-          
+
           echo "✅ All SUSFS patches verified successfully!"
           echo "==============================================="
-       
-        
+
       - name: 🪛 Complete KernelSU & SUSFS Integration
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
-          
-          echo "==============================================="
+
+          echo "================================================="
           echo "[*] KernelSU & SUSFS Build System Integration"
-          echo "==============================================="
-          
-          # Step 1: Clean old files
+          echo "================================================="
+
+          # ── Step 1: Clean slate ──────────────────────────────
           echo "[+] Step 1: Cleaning up old KSU files..."
           rm -rf KernelSU drivers/kernelsu drivers/kernelsu_repo
-          
-          # Step 2: Clone KernelSU-Next
-          echo "[+] Step 2: Cloning KernelSU-Next..."
-          git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs drivers/kernelsu_repo || git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs drivers/kernelsu_repo || {
-              echo "❌ Failed to clone KernelSU-Next"
-              exit 1
+
+          # ── Step 2: Clone KernelSU-Next (legacy-susfs) ───────
+          echo "[+] Step 2: Cloning KernelSU-Next (legacy-susfs branch)..."
+          git clone --depth=1 https://github.com/rifsxd/KernelSU-Next.git \
+              -b legacy-susfs drivers/kernelsu_repo 2>/dev/null || \
+          git clone --depth=1 https://github.com/rifsxd/KernelSU-Next.git \
+              -b legacy_susfs drivers/kernelsu_repo || {
+            echo "❌ Failed to clone KernelSU-Next"
+            exit 1
           }
-          
-          # Step 3: Setup drivers/kernelsu
+          echo "✅ KernelSU-Next cloned"
+
+          # ── Step 3: Set up drivers/kernelsu ──────────────────
           echo "[+] Step 3: Setting up kernel module directory..."
           cp -r drivers/kernelsu_repo/kernel drivers/kernelsu
-          
-          # Copy uapi if exists
+
+          # Copy uapi headers if present
           if [ -d "drivers/kernelsu_repo/uapi" ] && [ ! -d "drivers/kernelsu/uapi" ]; then
-              cp -r drivers/kernelsu_repo/uapi drivers/kernelsu/
+            cp -r drivers/kernelsu_repo/uapi drivers/kernelsu/
+            echo "✅ Copied uapi headers"
           fi
-          
-          # Force built-in compilation of KernelSU to fix undefined references
-          echo "[+] Forcing built-in compilation..."
-          sed -i 's/obj-$(CONFIG_KSU)/obj-y/g' drivers/kernelsu/Makefile
-          sed -i 's/obj-m/obj-y/g' drivers/kernelsu/Makefile
-          echo "ccflags-y += -I\$(srctree)/drivers/kernelsu" >> drivers/kernelsu/Makefile
-          
-          # Add SUSFS Kconfig entries if missing (Prevents Kbuild from dropping them)
-          if ! grep -q "config KSU_SUSFS" drivers/kernelsu/Kconfig; then
-              echo "[+] Injecting SUSFS Kconfig entries..."
-              cat << 'EOF' >> drivers/kernelsu/Kconfig
+
+          # ─────────────────────────────────────────────────────
+          # FIX 1 — fs/susfs.c version mismatch
+          #
+          # The lineage-20 kernel branch has an OLD fs/susfs.c that is
+          # missing the API functions called from the already-patched
+          # fs/namespace.c:
+          #   susfs_is_mnt_dev_hidden, susfs_sus_mount, susfs_sus_umount,
+          #   __is_path_android_data, susfs_run_sus_path_loop
+          #
+          # Strategy (tries 3 sources in order):
+          #   1. SuSFS files bundled inside KernelSU-Next repo
+          #   2. filterdiff — extract susfs.c directly from the patch file
+          #   3. Clone simonpunk/susfs4ksu as final fallback
+          # ─────────────────────────────────────────────────────
+          echo "[+] FIX 1: Updating fs/susfs.c to match patched namespace.c API..."
+
+          # Source 1 — check KernelSU-Next repo for bundled susfs files
+          SUSFS_C_SRC=""
+          for p in \
+              "drivers/kernelsu_repo/kernel/susfs/susfs.c" \
+              "drivers/kernelsu_repo/fs/susfs.c" \
+              "drivers/kernelsu_repo/kernel/susfs.c"; do
+            if [ -f "$p" ]; then
+              SUSFS_C_SRC="$p"
+              break
+            fi
+          done
+
+          if [ -n "$SUSFS_C_SRC" ]; then
+            cp "$SUSFS_C_SRC" fs/susfs.c
+            echo "✅ fs/susfs.c updated from KernelSU-Next ($SUSFS_C_SRC)"
+          fi
+
+          # Source 2 — filterdiff the patch file (most reliable for our setup)
+          if ! grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
+            echo "[+] Trying filterdiff from susfs_patch_to_4.9.patch..."
+            sudo apt-get install -y patchutils -q 2>/dev/null || true
+            SUSFS_PATCH="/tmp/Patches/Patch/susfs_patch_to_4.9.patch"
+
+            if [ -f "$SUSFS_PATCH" ] && command -v filterdiff &>/dev/null; then
+              # Remove old file first so patch recreates it cleanly
+              rm -f fs/susfs.c include/linux/susfs.h
+
+              filterdiff -p1 -i 'fs/susfs.c' "$SUSFS_PATCH" | \
+                  patch -p1 --force -l -r /dev/null 2>/dev/null && \
+                  echo "✅ fs/susfs.c extracted from patch" || \
+                  echo "⚠️  filterdiff on susfs.c failed"
+
+              filterdiff -p1 -i 'include/linux/susfs.h' "$SUSFS_PATCH" | \
+                  patch -p1 --force -l -r /dev/null 2>/dev/null && \
+                  echo "✅ include/linux/susfs.h extracted from patch" || true
+            fi
+          fi
+
+          # Source 3 — simonpunk/susfs4ksu as last resort
+          if ! grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
+            echo "[+] Fallback: cloning simonpunk/susfs4ksu..."
+            git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git \
+                -b kernel-4.9 /tmp/susfs4ksu 2>/dev/null || \
+            git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git \
+                /tmp/susfs4ksu 2>/dev/null || true
+
+            for p in \
+                "/tmp/susfs4ksu/kernel_patches/fs/susfs.c" \
+                "/tmp/susfs4ksu/fs/susfs.c"; do
+              if [ -f "$p" ]; then
+                cp "$p" fs/susfs.c
+                echo "✅ fs/susfs.c copied from simonpunk ($p)"
+                break
+              fi
+            done
+
+            for p in \
+                "/tmp/susfs4ksu/kernel_patches/include/linux/susfs.h" \
+                "/tmp/susfs4ksu/include/linux/susfs.h"; do
+              if [ -f "$p" ]; then
+                cp "$p" include/linux/susfs.h
+                echo "✅ susfs.h copied from simonpunk"
+                break
+              fi
+            done
+          fi
+
+          # Verify susfs.c is now correct
+          if grep -q "susfs_is_mnt_dev_hidden" fs/susfs.c 2>/dev/null; then
+            echo "✅ fs/susfs.c has required API functions"
+          else
+            echo "❌ FATAL: Could not update fs/susfs.c — aborting build"
+            exit 1
+          fi
+
+          # If susfs_run_sus_path_loop is still missing, add a compatibility stub
+          # (this function is called from KernelSU-Next setuid_hook.c)
+          if ! grep -q "susfs_run_sus_path_loop" fs/susfs.c 2>/dev/null; then
+            echo "[!] susfs_run_sus_path_loop missing — adding compatibility stub..."
+            cat << 'STUB' >> fs/susfs.c
+
+          /* Compatibility stub for KernelSU-Next legacy-susfs setuid_hook */
+          #ifndef susfs_run_sus_path_loop
+          void susfs_run_sus_path_loop(const char *name, uid_t uid) { }
+          EXPORT_SYMBOL_GPL(susfs_run_sus_path_loop);
+          #endif
+          STUB
+            echo "✅ susfs_run_sus_path_loop stub added"
+          fi
+
+          # ─────────────────────────────────────────────────────
+          # FIX 2 — Remove deprecated KSU hooks from mm/memory.c
+          #
+          # ksu_handle_copy_page_range and ksu_handle_wp_page_copy were
+          # optional page-tracking hooks from an older KernelSU patching
+          # approach. They were removed/renamed in KernelSU-Next and are
+          # NOT defined in the legacy-susfs branch.
+          # ─────────────────────────────────────────────────────
+          echo "[+] FIX 2: Removing deprecated KSU memory hooks from mm/memory.c..."
+
+          for func in ksu_handle_copy_page_range ksu_handle_wp_page_copy; do
+            if grep -q "$func" mm/memory.c; then
+              sed -i "/$func/d" mm/memory.c
+              echo "✅ Removed $func from mm/memory.c"
+            else
+              echo "   (${func} not present — skipping)"
+            fi
+          done
+
+          # ─────────────────────────────────────────────────────
+          # FIX 3 — Patch BOTH Makefile AND Kbuild for built-in compilation
+          #
+          # CRITICAL BUG in previous version: only Makefile was patched.
+          # When a kernel directory contains a Kbuild file, the kernel build
+          # system uses Kbuild and IGNORES Makefile entirely.
+          # KernelSU-Next uses a Kbuild file → core_hook.c (which defines
+          # ksu_handle_prctl) was never being compiled → undefined reference.
+          # ─────────────────────────────────────────────────────
+          echo "[+] FIX 3: Forcing built-in compilation in Makefile AND Kbuild..."
+
+          for build_file in Makefile Kbuild; do
+            if [ -f "drivers/kernelsu/$build_file" ]; then
+              sed -i 's/obj-$(CONFIG_KSU)/obj-y/g' "drivers/kernelsu/$build_file"
+              sed -i 's/obj-m/obj-y/g'              "drivers/kernelsu/$build_file"
+              echo "✅ Patched drivers/kernelsu/$build_file → obj-y"
+            fi
+          done
+
+          # Ensure include path is set (Makefile only, for ccflags)
+          if ! grep -q "ccflags-y.*kernelsu" drivers/kernelsu/Makefile 2>/dev/null; then
+            echo "ccflags-y += -I\$(srctree)/drivers/kernelsu" >> drivers/kernelsu/Makefile
+          fi
+
+          # ── Step 4: Inject missing SUSFS Kconfig entries ─────
+          if ! grep -q "config KSU_SUSFS" drivers/kernelsu/Kconfig 2>/dev/null; then
+            echo "[+] Step 4: Injecting SUSFS Kconfig entries..."
+            cat << 'EOF' >> drivers/kernelsu/Kconfig
           config KSU_SUSFS
               bool "SUSFS"
               default y
@@ -211,39 +356,40 @@ jobs:
               bool
               default y
           EOF
+            echo "✅ SUSFS Kconfig entries injected"
+          else
+            echo "✅ SUSFS Kconfig entries already present"
           fi
-          
-          # Step 4: Link KernelSU to Kbuild
-          echo "[+] Step 4: Integrating KernelSU into Kbuild..."
-          
+
+          # ── Step 5: Link KernelSU into kernel Kbuild tree ────
+          echo "[+] Step 5: Linking KernelSU into kernel Kbuild..."
+
           if ! grep -q "kernelsu/" drivers/Makefile; then
-              echo "obj-y += kernelsu/" >> drivers/Makefile
-              echo "✅ Added to drivers/Makefile"
+            echo "obj-y += kernelsu/" >> drivers/Makefile
+            echo "✅ Added kernelsu/ to drivers/Makefile"
           fi
-          
           if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
-              sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
-              echo "✅ Added to drivers/Kconfig"
+            sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+            echo "✅ Sourced Kconfig in drivers/Kconfig"
           fi
-          
           if ! grep -q "drivers/kernelsu/Kconfig" arch/arm64/Kconfig; then
-              echo "source \"drivers/kernelsu/Kconfig\"" >> arch/arm64/Kconfig
-              echo "✅ Added to arch/arm64/Kconfig"
+            echo "source \"drivers/kernelsu/Kconfig\"" >> arch/arm64/Kconfig
+            echo "✅ Sourced Kconfig in arch/arm64/Kconfig"
           fi
-          
-          # Step 5: Update defconfig
-          echo "[+] Step 5: Updating defconfig with all required options..."
-          
+
+          # ── Step 6: Update defconfig ──────────────────────────
+          echo "[+] Step 6: Appending KSU + SuSFS options to defconfig..."
+
           cat << 'DEFCONFIG' >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          
-          # KernelSU Core Configuration
+
+          # KernelSU Core
           CONFIG_KSU=y
           CONFIG_KSU_MANUAL_HOOK=y
           CONFIG_KSU_NONE_HOOK=n
           CONFIG_KPROBES=y
           CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
-          
-          # KernelSU + SUSFS Integration
+
+          # KernelSU + SuSFS Integration
           CONFIG_KSU_SUSFS=y
           CONFIG_KSU_SUSFS_SUS_PATH=y
           CONFIG_KSU_SUSFS_SUS_MOUNT=y
@@ -257,15 +403,17 @@ jobs:
           CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
           CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
           CONFIG_KSU_SUSFS_SUS_MAP=y
-          
-          # Security Disable (Samsung specifics)
+
+          # Samsung security (disable Knox/DEFKNOT)
           # CONFIG_SECURITY_DEFKNOT is not set
           # CONFIG_KNOX_KAP is not set
           # CONFIG_SEC_RESTRICT is not set
           DEFCONFIG
-          
+
           echo "✅ Defconfig updated"
-          echo "==============================================="
+          echo "================================================="
+          echo "✅ All fixes applied — ready for build"
+          echo "================================================="
 
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
