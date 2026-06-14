@@ -102,48 +102,201 @@ jobs:
 
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
-        
-      - name: 🪛 Clean KernelSU & SuSFS Integration
+
+      - name: 🔍 Verify SUSFS Patch Application
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           
-          echo "[+] 1. Cleaning up old KSU files..."
+          echo "==============================================="
+          echo "[*] SUSFS Patch Verification Step"
+          echo "==============================================="
+          
+          # Check fs/namespace.c
+          if grep -q "susfs_is_mnt_dev_hidden" fs/namespace.c; then
+              echo "✅ SUSFS patch applied to fs/namespace.c"
+          else
+              echo "❌ ERROR: SUSFS patch NOT applied to fs/namespace.c"
+              echo "[*] Checking for any SUSFS references..."
+              grep -n "susfs" fs/namespace.c | head -20 || echo "No SUSFS references found"
+              exit 1
+          fi
+          
+          # Check fs/proc/task_mmu.c
+          if grep -q "susfs_open_redirect_spoof_show_map_vma" fs/proc/task_mmu.c; then
+              echo "✅ SUSFS patch applied to fs/proc/task_mmu.c"
+          else
+              echo "❌ ERROR: SUSFS patch NOT applied to fs/proc/task_mmu.c"
+              echo "[*] Checking for any SUSFS references..."
+              grep -n "susfs" fs/proc/task_mmu.c | head -20 || echo "No SUSFS references found"
+              exit 1
+          fi
+          
+          echo "✅ All SUSFS patches verified successfully!"
+          echo "==============================================="
+
+      - name: 🪛 Complete KernelSU & SUSFS Integration
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          
+          echo "==============================================="
+          echo "[*] KernelSU & SUSFS Build System Integration"
+          echo "==============================================="
+          
+          # Step 1: Clean old files
+          echo "[+] Step 1: Cleaning up old KSU files..."
           rm -rf KernelSU drivers/kernelsu
           
-          echo "[+] 2. Cloning KernelSU-Next directly into drivers/kernelsu..."
-          git clone https://github.com/KernelSU-Next/KernelSU-Next.git -b legacy-susfs drivers/kernelsu
+          # Step 2: Clone KernelSU-Next with SUSFS support
+          echo "[+] Step 2: Cloning KernelSU-Next with SUSFS support..."
+          git clone https://github.com/KernelSU-Next/KernelSU-Next.git -b legacy-susfs drivers/kernelsu || {
+              echo "❌ Failed to clone KernelSU-Next"
+              exit 1
+          }
           
-          echo "[+] 3. Integrating into Kernel Build System (Kbuild)..."
-          if ! grep -q "obj-\$(CONFIG_KSU) += kernelsu/" drivers/Makefile; then
+          # Verify KernelSU structure
+          if [ ! -f "drivers/kernelsu/kernel/core.c" ]; then
+              echo "❌ ERROR: KernelSU source structure invalid"
+              exit 1
+          fi
+          echo "✅ KernelSU cloned successfully"
+          
+          # Step 3: Link KernelSU to kernel build system (Kbuild)
+          echo "[+] Step 3: Integrating KernelSU into Kbuild..."
+          
+          # Add to drivers/Makefile
+          if ! grep -q "obj-\$(CONFIG_KSU)" drivers/Makefile; then
               echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
+              echo "✅ Added to drivers/Makefile"
+          else
+              echo "⚠️  KernelSU already in drivers/Makefile"
           fi
           
-          if ! grep -q "source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig; then
+          # Add to drivers/Kconfig
+          if ! grep -q "source.*drivers/kernelsu/Kconfig" drivers/Kconfig; then
               sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+              echo "✅ Added to drivers/Kconfig"
+          else
+              echo "⚠️  KernelSU Kconfig already linked"
           fi
           
-          echo "[+] 4. Updating Defconfig with KSU and SuSFS options..."
-          cat <<EOF >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          CONFIG_KSU=y
-          CONFIG_KSU_MANUAL_HOOK=y
-          CONFIG_KPROBES=y
-          CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
-          CONFIG_KSU_SUSFS=y
-          CONFIG_KSU_SUSFS_SUS_PATH=y
-          CONFIG_KSU_SUSFS_SUS_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-          CONFIG_KSU_SUSFS_ENABLE_ALGO=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-          CONFIG_KSU_SUSFS_SUS_SU=y
-          EOF
+          # Step 4: Ensure SUSFS symbols are properly exposed
+          echo "[+] Step 4: Verifying SUSFS symbol exposure..."
+          
+          # Check if SUSFS functions are properly exported
+          if grep -q "EXPORT_SYMBOL.*susfs_is_mnt_dev_hidden" drivers/kernelsu/kernel/susfs.c 2>/dev/null || \
+             grep -q "extern.*susfs_is_mnt_dev_hidden" fs/namespace.c; then
+              echo "✅ SUSFS symbols properly exposed"
+          else
+              echo "⚠️  Note: Checking SUSFS symbol linkage during build phase"
+          fi
+          
+          # Step 5: Update defconfig with comprehensive SUSFS & KSU options
+          echo "[+] Step 5: Updating defconfig with all required options..."
+          
+          # Backup original defconfig
+          cp arch/arm64/configs/${{ env.DEFCONFIG_NAME }} arch/arm64/configs/${{ env.DEFCONFIG_NAME }}.backup
+          
+          # Add all required kernel configuration options
+          cat <<'DEFCONFIG' >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          
+          # KernelSU Core Configuration
+            CONFIG_KSU=y
+            CONFIG_KSU_MANUAL_HOOK=y
+            CONFIG_KSU_NONE_HOOK=n
+            CONFIG_KPROBES=y
+            CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
 
-      - name: 🚀 Build Process
-        uses: ./.github/workflows/build-process
+          # KernelSU + SUSFS Integration
+            CONFIG_KSU_SUSFS=y
+            CONFIG_KSU_SUSFS_SUS_PATH=y
+            CONFIG_KSU_SUSFS_SUS_MOUNT=y
+            CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+            CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+            CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+            CONFIG_KSU_SUSFS_ENABLE_ALGO=y
+            CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+            CONFIG_KSU_SUSFS_SUS_SU=y
+            CONFIG_KSU_SUSFS_SUS_KSTAT=y
+            CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+            CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+            CONFIG_KSU_SUSFS_SUS_MAP=y
 
-      - name: 🔩 Pack Process
-        uses: ./.github/workflows/pack-process
+            # Security Disable (Samsung specifics)
+            # CONFIG_SECURITY_DEFKNOT is not set
+            # CONFIG_KNOX_KAP is not set
+            # CONFIG_SEC_RESTRICT is not set
+         
+            DEFCONFIG
+          
+          echo "✅ Defconfig updated with all options"
+          
+          # Step 6: Final verification
+          echo "[+] Step 6: Final verification..."
+          
+          ERRORS=0
+          
+          # Verify Makefile linkage
+          if grep -q "obj-\$(CONFIG_KSU)" drivers/Makefile; then
+              echo "✅ KernelSU linked to Makefile"
+          else
+              echo "❌ KernelSU NOT linked to Makefile"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          # Verify Kconfig linkage
+          if grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
+              echo "✅ KernelSU Kconfig linked"
+          else
+              echo "❌ KernelSU Kconfig NOT linked"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          # Verify SUSFS functions patched
+          if grep -q "susfs_is_mnt_dev_hidden" fs/namespace.c; then
+              echo "✅ SUSFS namespace.c patched"
+          else
+              echo "❌ SUSFS namespace.c NOT patched"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          if grep -q "susfs_open_redirect_spoof_show_map_vma" fs/proc/task_mmu.c; then
+              echo "✅ SUSFS task_mmu.c patched"
+          else
+              echo "❌ SUSFS task_mmu.c NOT patched"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          # Verify defconfig
+          if grep -q "CONFIG_KSU=y" arch/arm64/configs/${{ env.DEFCONFIG_NAME }}; then
+              echo "✅ CONFIG_KSU=y enabled"
+          else
+              echo "❌ CONFIG_KSU=y NOT enabled"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          if grep -q "CONFIG_KSU_SUSFS=y" arch/arm64/configs/${{ env.DEFCONFIG_NAME }}; then
+              echo "✅ CONFIG_KSU_SUSFS=y enabled"
+          else
+              echo "❌ CONFIG_KSU_SUSFS=y NOT enabled"
+              ERRORS=$((ERRORS + 1))
+          fi
+          
+          echo "==============================================="
+          
+          if [ $ERRORS -eq 0 ]; then
+              echo "✅ All integration checks passed!"
+              echo "Ready for kernel build..."
+          else
+              echo "❌ Integration checks failed! ($ERRORS errors)"
+              exit 1
+          fi
+          
+          echo "==============================================="   
+          - name: 🚀 Build Process
+            uses: ./.github/workflows/build-process  
+        
+          - name: 🔩 Pack Process
+            uses: ./.github/workflows/pack-process
 
-      - name: ✏️ Upload Artifacts
-        uses: ./.github/workflows/upload-files
+          - name: ✏️ Upload Artifacts
+            uses: ./.github/workflows/upload-files
