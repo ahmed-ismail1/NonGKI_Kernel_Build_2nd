@@ -34,8 +34,8 @@ env:
   KERNELSU_AUTO_GET: false
   KERNELSU_AUTO_FORK: ""
 
-  SUSFS_ENABLE: false
-  SUSFS_FIXED: false
+  SUSFS_ENABLE: true
+  SUSFS_FIXED: true
 
   AK3_SOURCE: "https://github.com/osm0sis/AnyKernel3.git"
   AK3_BRANCH: "master"
@@ -103,37 +103,42 @@ jobs:
       - name: 🪝 Patch Kernel of SUSFS
         uses: ./.github/workflows/patch-susfs
         
-      - name: 🪛 Extra Kernel Options
+      - name: 🪛 Clean KernelSU & SuSFS Integration
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
           
+          echo "[+] 1. Cleaning up old KSU files..."
           rm -rf KernelSU drivers/kernelsu
-          git clone https://github.com/KernelSU-Next/KernelSU-Next.git -b legacy-susfs KernelSU
-          ln -sf ../KernelSU/kernel drivers/kernelsu
-          grep -q "kernelsu" drivers/Makefile || printf "\nobj-y += kernelsu/\n" >> drivers/Makefile
           
-          sed -i '1i CONFIG_KSU_MANUAL_HOOK := y\nCONFIG_KSU_SUSFS := y\n' KernelSU/kernel/Makefile || true
-          sed -i '1i CONFIG_KSU_MANUAL_HOOK := y\nCONFIG_KSU_SUSFS := y\n' KernelSU/kernel/Kbuild || true
+          echo "[+] 2. Cloning KernelSU-Next directly into drivers/kernelsu..."
+          git clone https://github.com/KernelSU-Next/KernelSU-Next.git -b legacy-susfs drivers/kernelsu
           
-          sed -i '/No hooks were defined/d' KernelSU/kernel/Kbuild || true
+          echo "[+] 3. Integrating into Kernel Build System (Kbuild)..."
+          if ! grep -q "obj-\$(CONFIG_KSU) += kernelsu/" drivers/Makefile; then
+              echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
+          fi
           
-          cat <<EOF >> include/linux/kconfig.h
-          #define CONFIG_KSU 1
-          #define CONFIG_KSU_MANUAL_HOOK 1
-          #define CONFIG_KSU_SUSFS 1
-          #define CONFIG_KSU_SUSFS_SUS_PATH 1
-          #define CONFIG_KSU_SUSFS_SUS_MOUNT 1
-          #define CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT 1
-          #define CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT 1
-          #define CONFIG_KSU_SUSFS_SPOOF_UNAME 1
-          #define CONFIG_KSU_SUSFS_ENABLE_ALGO 1
-          #define CONFIG_KSU_SUSFS_OPEN_REDIRECT 1
-          #define CONFIG_KSU_SUSFS_SUS_SU 1
+          if ! grep -q "source \"drivers/kernelsu/Kconfig\"" drivers/Kconfig; then
+              sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+          fi
+          
+          echo "[+] 4. Updating Defconfig with KSU and SuSFS options..."
+          cat <<EOF >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          CONFIG_KSU=y
+          CONFIG_KSU_MANUAL_HOOK=y
+          CONFIG_KPROBES=y
+          CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_SUS_PATH=y
+          CONFIG_KSU_SUSFS_SUS_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+          CONFIG_KSU_SUSFS_ENABLE_ALGO=y
+          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          CONFIG_KSU_SUSFS_SUS_SU=y
           EOF
-          
-          echo "CONFIG_KSU=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "CONFIG_KPROBES=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          echo "CONFIG_HAVE_SYSCALL_TRACEPOINTS=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 
