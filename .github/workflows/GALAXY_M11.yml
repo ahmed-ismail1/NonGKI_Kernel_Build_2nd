@@ -131,7 +131,8 @@ jobs:
           
           echo "✅ All SUSFS patches verified successfully!"
           echo "==============================================="
-
+       
+        
       - name: 🪛 Complete KernelSU & SUSFS Integration
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
@@ -144,41 +145,85 @@ jobs:
           echo "[+] Step 1: Cleaning up old KSU files..."
           rm -rf KernelSU drivers/kernelsu drivers/kernelsu_repo
           
-          # Step 2: Clone KernelSU-Next perfectly inside drivers/
+          # Step 2: Clone KernelSU-Next
           echo "[+] Step 2: Cloning KernelSU-Next..."
-          # Fallback branch check for legacy_susfs vs legacy-susfs
           git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy-susfs drivers/kernelsu_repo || git clone https://github.com/rifsxd/KernelSU-Next.git -b legacy_susfs drivers/kernelsu_repo || {
               echo "❌ Failed to clone KernelSU-Next"
               exit 1
           }
           
-          # Step 3: Setup drivers/kernelsu safely (In-tree Symlink)
+          # Step 3: Setup drivers/kernelsu
           echo "[+] Step 3: Setting up kernel module directory..."
-          cd drivers
-          ln -sf kernelsu_repo/kernel kernelsu
-          cd ..
+          cp -r drivers/kernelsu_repo/kernel drivers/kernelsu
           
-          if [ ! -f "drivers/kernelsu/Makefile" ]; then
-              echo "❌ ERROR: KernelSU Makefile not found in drivers/kernelsu!"
-              exit 1
+          # Copy uapi if exists
+          if [ -d "drivers/kernelsu_repo/uapi" ] && [ ! -d "drivers/kernelsu/uapi" ]; then
+              cp -r drivers/kernelsu_repo/uapi drivers/kernelsu/
           fi
-          echo "✅ KernelSU source ready in drivers/kernelsu"
+          
+          # Force built-in compilation of KernelSU to fix undefined references
+          echo "[+] Forcing built-in compilation..."
+          sed -i 's/obj-$(CONFIG_KSU)/obj-y/g' drivers/kernelsu/Makefile
+          sed -i 's/obj-m/obj-y/g' drivers/kernelsu/Makefile
+          echo "ccflags-y += -I\$(srctree)/drivers/kernelsu" >> drivers/kernelsu/Makefile
+          
+          # Add SUSFS Kconfig entries if missing (Prevents Kbuild from dropping them)
+          if ! grep -q "config KSU_SUSFS" drivers/kernelsu/Kconfig; then
+              echo "[+] Injecting SUSFS Kconfig entries..."
+              cat << 'EOF' >> drivers/kernelsu/Kconfig
+          config KSU_SUSFS
+              bool "SUSFS"
+              default y
+          config KSU_SUSFS_SUS_PATH
+              bool
+              default y
+          config KSU_SUSFS_SUS_MOUNT
+              bool
+              default y
+          config KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+              bool
+              default y
+          config KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+              bool
+              default y
+          config KSU_SUSFS_SPOOF_UNAME
+              bool
+              default y
+          config KSU_SUSFS_ENABLE_ALGO
+              bool
+              default y
+          config KSU_SUSFS_OPEN_REDIRECT
+              bool
+              default y
+          config KSU_SUSFS_SUS_SU
+              bool
+              default y
+          config KSU_SUSFS_SUS_KSTAT
+              bool
+              default y
+          config KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+              bool
+              default y
+          config KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+              bool
+              default y
+          config KSU_SUSFS_SUS_MAP
+              bool
+              default y
+          EOF
+          fi
           
           # Step 4: Link KernelSU to Kbuild
           echo "[+] Step 4: Integrating KernelSU into Kbuild..."
           
-          if ! grep -q "obj-\$(CONFIG_KSU)" drivers/Makefile; then
-              echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
+          if ! grep -q "kernelsu/" drivers/Makefile; then
+              echo "obj-y += kernelsu/" >> drivers/Makefile
               echo "✅ Added to drivers/Makefile"
-          else
-              echo "⚠️ KernelSU already in drivers/Makefile"
           fi
           
           if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
               sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
               echo "✅ Added to drivers/Kconfig"
-          else
-              echo "⚠️ KernelSU Kconfig already linked in drivers/Kconfig"
           fi
           
           if ! grep -q "drivers/kernelsu/Kconfig" arch/arm64/Kconfig; then
