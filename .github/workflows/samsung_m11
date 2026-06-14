@@ -1,0 +1,119 @@
+name: Build M11_A11
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  DEVICE_NAME: "galaxy_m11"
+  DEVICE_CODENAME: "a11q"
+
+  CUSTOM_CMDS: "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-androideabi-"
+  EXTRA_CMDS: "CC=clang AR=llvm-ar NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+
+  KERNEL_SOURCE: "https://github.com/ahmed-ismail1/android_kernel_samsung_sdm450.git"
+  KERNEL_BRANCH: "lineage-20"
+
+  CLANG_SOURCE: "https://github.com/ZyCromerZ/Clang/releases/download/13.0.1-20230207-release/Clang-13.0.1-20230207.tar.gz"
+  CLANG_BRANCH: ""
+
+  GCC_GNU: true
+  GCC_64_SOURCE: "https://github.com/mvaisakh/gcc-arm64/archive/refs/heads/gcc-master.zip"
+  GCC_64_BRANCH: ""
+  GCC_32_SOURCE: "https://github.com/mvaisakh/gcc-arm/archive/refs/heads/gcc-master.zip"
+  GCC_32_BRANCH: ""
+
+  DEFCONFIG_SOURCE: ""
+  DEFCONFIG_NAME: "a11q_open_defconfig"
+  DEFCONFIG_ORIGIN_IMAGE: ""
+  DEFCONFIG_FROM_BOOT: false
+
+  KERNELSU_SOURCE: ""
+  KERNELSU_BRANCH: ""
+  KERNELSU_AUTO_GET: "true"
+  KERNELSU_AUTO_FORK: "resukisu"
+
+  SUSFS_ENABLE: true
+  SUSFS_FIXED: true
+
+  AK3_SOURCE: "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH: "master"
+  BOOT_SOURCE: ""
+
+  NEED_DTBO: false
+  NEED_SAFE_DTBO: false
+  ROM_TEXT: "lineage20"
+
+  PYTHON_VERSION: "3"
+  PACK_METHOD: "Anykernel3"
+  PACK_KMODULES: "false"
+  KERNELSU_METHOD: "shell"
+
+  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
+  PATCHES_BRANCH: "main"
+  SUSFS_FOLDER_FIXED: "a11q_susfs_49"
+  SUSFS_PATCH_FIXED: "susfs_fixed"
+
+  REKERNEL_ENABLE: "false"
+  DROIDSPACES_ENABLE: "false"
+
+  HOOK_METHOD: "syscall"
+  KERNEL_PATCH: "false"
+
+  KPM_ENABLE: "false"
+  KPM_INLINE: "false"
+  KPM_KPATCH_NEXT: "false"
+
+  BASEBAND_GUARD_ENABLE: "false"
+  BASEBAND_GUARD_BOOT: "false"
+
+  GENERATE_DTB: "false"
+  GENERATE_CHIP: "qcom"
+
+  BUILD_DEBUGGER: "true"
+  SKIP_PATCH: "false"
+
+  BUILD_OTHER_CONFIG: "false"
+  MERGE_CONFIG_FILES: ""
+
+  FREE_MORE_SPACE: "true"
+
+jobs:
+  build-kernel:
+    name: Samsung Galaxy M11 (LineageOS 20)
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+
+    steps:
+      - name: ⏰ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⌛️ Compilation environment preparation
+        uses: ./.github/workflows/build-env
+
+      - name: ⚙️ Get necessary tools
+        uses: ./.github/workflows/build-ready
+
+      - name: 🪝 Patch Kernel of SUSFS
+        uses: ./.github/workflows/patch-susfs
+
+      - name: 🔗 Patch for no-kprobe
+        uses: ./.github/workflows/patch-no-kprobe
+
+      - name: 🪛 Extra Kernel Options
+        run: |
+          cd $GITHUB_WORKSPACE/device_kernel
+          echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_KSU_LSM_SECURITY_HOOKS=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+
+      - name: 🚀 Build Process
+        uses: ./.github/workflows/build-process
+
+      - name: 🔩 Pack Process
+        uses: ./.github/workflows/pack-process
+
+      - name: ✏️ Upload Artifacts
+        uses: ./.github/workflows/upload-files
