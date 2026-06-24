@@ -1,4 +1,4 @@
-name: Build M11_A11
+name: Build a20s resuntk
 
 on:
   workflow_call:
